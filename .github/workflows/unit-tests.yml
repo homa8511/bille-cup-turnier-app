@@ -11,6 +11,7 @@ on:
       - 'backend/src/**'
       - 'backend/tests/**'
       - 'backend/package.json'
+  workflow_dispatch:
   schedule:
     - cron: '0 2 * * *' # Führt die Tests täglich um 02:00 UTC aus
 
