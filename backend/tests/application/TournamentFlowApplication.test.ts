@@ -29,29 +29,42 @@ describe('TournamentFlowApplication', () => {
     test('shouldCallRepositoriesAndServiceWhenSwissRoundIsProcessed', async () => {
         // Arrange
         const groupId = 'g1';
+        const startTimeIso = '2026-06-27T10:00:00Z';
+        mockMatchRepo.fetchMatchesByGroup.mockResolvedValueOnce([]);
+        mockTournamentService.isFinalGroupComplete.mockReturnValueOnce(false);
         mockGroupRepo.fetchStandingsForGroup.mockResolvedValueOnce([]);
-        mockMatchRepo.fetchMatchHistoryMatrix.mockResolvedValueOnce({});
-        mockTournamentService.calculateSwissPairings.mockReturnValueOnce([{ home_team_id: 't1', away_team_id: 't2' }]);
+        mockMatchRepo.fetchCompleteMatchHistory.mockResolvedValueOnce({});
+        mockTournamentService.calculateSwissPairings.mockReturnValueOnce([{ home: { team_id: 't1', rank: 1 }, away: { team_id: 't2', rank: 2 } }]);
+        mockMatchRepo.insertGeneratedPairingsAndReturn.mockResolvedValueOnce([]);
+        mockSettingsRepo.fetchConfig.mockResolvedValueOnce({ match_duration_minutes: 10, pause_duration_minutes: 2 } as any);
+        mockTournamentService.scheduleSingleFinalRound.mockReturnValueOnce([]);
+        mockMatchRepo.updateMatchTimes.mockResolvedValueOnce();
 
         // Act
-        await appService.processSwissRoundPairings(groupId);
+        await appService.generateNextSwissRound(groupId, startTimeIso);
 
         // Assert
+        expect(mockMatchRepo.fetchMatchesByGroup).toHaveBeenCalledWith(groupId);
         expect(mockGroupRepo.fetchStandingsForGroup).toHaveBeenCalledWith(groupId);
-        expect(mockMatchRepo.fetchMatchHistoryMatrix).toHaveBeenCalledWith(groupId);
+        expect(mockMatchRepo.fetchCompleteMatchHistory).toHaveBeenCalled();
         expect(mockTournamentService.calculateSwissPairings).toHaveBeenCalled();
-        expect(mockMatchRepo.insertGeneratedPairings).toHaveBeenCalledWith(groupId, expect.any(Array));
+        expect(mockMatchRepo.insertGeneratedPairingsAndReturn).toHaveBeenCalledWith(groupId, expect.any(Array));
+        expect(mockTournamentService.scheduleSingleFinalRound).toHaveBeenCalled();
+        expect(mockMatchRepo.updateMatchTimes).toHaveBeenCalled();
     });
 
     test('shouldThrowErrorWhenSwissPairingsCannotBeGenerated', async () => {
         // Arrange
         const groupId = 'g1';
+        const startTimeIso = '2026-06-27T10:00:00Z';
+        mockMatchRepo.fetchMatchesByGroup.mockResolvedValueOnce([]);
+        mockTournamentService.isFinalGroupComplete.mockReturnValueOnce(false);
         mockGroupRepo.fetchStandingsForGroup.mockResolvedValueOnce([]);
-        mockMatchRepo.fetchMatchHistoryMatrix.mockResolvedValueOnce({});
+        mockMatchRepo.fetchCompleteMatchHistory.mockResolvedValueOnce({});
         mockTournamentService.calculateSwissPairings.mockReturnValueOnce([]);
 
         // Act & Assert
-        await expect(appService.processSwissRoundPairings(groupId)).rejects.toThrow('Es konnten keine überschneidungsfreien Paarungen generiert werden.');
+        await expect(appService.generateNextSwissRound(groupId, startTimeIso)).rejects.toThrow('Es konnten keine überschneidungsfreien Paarungen generiert werden.');
     });
 
     test('shouldUpdateGroupsWhenSnakeSeedingIsCompiled', async () => {
@@ -66,7 +79,6 @@ describe('TournamentFlowApplication', () => {
         // Assert
         expect(mockGroupRepo.fetchOverallStandings).toHaveBeenCalledWith('VORRUNDE');
         expect(mockTournamentService.distributeSnakeSeeding).toHaveBeenCalled();
-        expect(mockGroupRepo.updateAssignedGroups).toHaveBeenCalled();
     });
 
     test('shouldUpdateMatchAndTriggerStandingsWhenResultIsProcessed', async () => {

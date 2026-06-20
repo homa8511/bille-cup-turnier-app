@@ -17,7 +17,7 @@ describe('Match', () => {
         match.startMatch();
 
         // Assert
-        expect(match.extractSnapshot().status).toBe('AKTIV');
+        expect(match.extractSnapshot().status).toBe('LIVE');
     });
 
     test('shouldUpdateScoreWhenMatchIsAktiv', () => {
@@ -75,14 +75,16 @@ describe('Match', () => {
         // Arrange
         match.startMatch(); // Setzt Status auf AKTIV
         const newTime = '2026-06-27T10:00:00Z';
+        const newEndTime = '2026-06-27T10:15:00Z';
 
         // Act
-        match.rescheduleTo(newTime);
+        match.rescheduleTo(newTime, newEndTime);
 
         // Assert
         const snapshot = match.extractSnapshot();
         expect(snapshot.status).toBe('GEPLANT');
         expect(snapshot.start_time).toBe(newTime);
+        expect(snapshot.end_time).toBe(newEndTime);
     });
 
     test('shouldUpdateTeamsWhenPlaceholdersAreReplaced', () => {

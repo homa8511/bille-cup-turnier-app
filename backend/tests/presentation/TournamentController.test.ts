@@ -74,12 +74,12 @@ describe('TournamentController', () => {
 
     test('generateSwissRound generiert Paarungen über die Anwendungsschicht', async () => {
         mockReq = { params: { groupId: 'g1' } };
-        mockAppService.processSwissRoundPairings.mockResolvedValueOnce(undefined);
+        mockAppService.generateNextSwissRound.mockResolvedValueOnce(undefined);
 
         await controller.generateSwissRound(mockReq as Request, mockRes as Response);
 
         // Der Controller stößt den Prozess für das Schweizer System an.
-        expect(mockAppService.processSwissRoundPairings).toHaveBeenCalledWith('g1');
+        expect(mockAppService.generateNextSwissRound).toHaveBeenCalledWith('g1', expect.any(String));
         // Die Antwort bestätigt die erfolgreiche Generierung.
         expect(mockRes.json).toHaveBeenCalledWith({ message: 'Paarungen erfolgreich generiert' });
     });
