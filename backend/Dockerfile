@@ -1,5 +1,5 @@
 # Stage 1: Build-Umgebung
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 
 # Arbeitsverzeichnis festlegen
 WORKDIR /usr/src/app
@@ -16,7 +16,7 @@ COPY src/ ./src/
 RUN npm run build
 
 # Stage 2: Produktions-Umgebung (Minimal)
-FROM node:20-alpine
+FROM node:24-alpine
 
 # Umgebungsvariable für Produktion setzen
 ENV NODE_ENV=production
