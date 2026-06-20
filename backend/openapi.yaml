@@ -1,0 +1,249 @@
+openapi: 3.0.3
+info:
+  title: Bille Cup Tournament API
+  description: REST API für die Verwaltung des Bille Cup Jugendturniers.
+  version: 2.0.0
+servers:
+  - url: http://localhost:3000/api
+    description: Lokaler Entwicklungsserver
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          minLength: 3
+        password:
+          type: string
+          minLength: 6
+    MatchResultRequest:
+      type: object
+      required:
+        - goals_home
+        - goals_away
+      properties:
+        goals_home:
+          type: integer
+          minimum: 0
+        goals_away:
+          type: integer
+          minimum: 0
+    SettingsRequest:
+      type: object
+      required:
+        - match_duration_minutes
+        - pause_duration_minutes
+      properties:
+        match_duration_minutes:
+          type: integer
+          minimum: 1
+          maximum: 120
+        pause_duration_minutes:
+          type: integer
+          minimum: 0
+          maximum: 60
+        phase_start_time:
+          type: string
+          format: date-time
+          nullable: true
+        footer_text_de:
+          type: string
+          nullable: true
+        footer_text_en:
+          type: string
+          nullable: true
+    PageContentRequest:
+      type: object
+      required:
+        - title_de
+        - title_en
+        - content_de
+        - content_en
+      properties:
+        title_de:
+          type: string
+        title_en:
+          type: string
+        content_de:
+          type: string
+        content_en:
+          type: string
+paths:
+  /admin/login:
+    post:
+      summary: Authentifiziert einen Administrator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Erfolgreicher Login
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+        '401':
+          description: Ungültige Zugangsdaten
+  /teams:
+    get:
+      summary: Ruft alle Mannschaften ab
+      responses:
+        '200':
+          description: Liste der Mannschaften
+  /groups:
+    get:
+      summary: Ruft alle Gruppen inklusive Tabellen ab
+      responses:
+        '200':
+          description: Liste der Gruppen
+  /matches:
+    get:
+      summary: Ruft den gesamten Spielplan ab
+      responses:
+        '200':
+          description: Liste der Spiele
+  /settings:
+    get:
+      summary: Ruft die globalen Turniereinstellungen ab
+      responses:
+        '200':
+          description: Aktuelle Einstellungen
+  /pages/{slug}:
+    get:
+      summary: Ruft eine redaktionelle Seite ab
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: lang
+          required: false
+          schema:
+            type: string
+            enum: [de, en]
+            default: de
+      responses:
+        '200':
+          description: Seiteninhalt
+        '404':
+          description: Seite nicht gefunden
+  /live:
+    get:
+      summary: Server-Sent Events (SSE) Endpunkt für Live-Updates
+      responses:
+        '200':
+          description: SSE Stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+  /admin/settings:
+    put:
+      summary: Aktualisiert die globalen Einstellungen
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SettingsRequest'
+      responses:
+        '200':
+          description: Einstellungen erfolgreich aktualisiert
+        '401':
+          description: Nicht autorisiert
+  /admin/pages/{slug}:
+    put:
+      summary: Aktualisiert eine redaktionelle Seite
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PageContentRequest'
+      responses:
+        '200':
+          description: Seite erfolgreich aktualisiert
+  /admin/matches/{id}/result:
+    post:
+      summary: Speichert ein Spielergebnis
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MatchResultRequest'
+      responses:
+        '200':
+          description: Ergebnis erfolgreich gespeichert
+  /admin/settings/logo:
+    post:
+      summary: Lädt das Turnierlogo hoch
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                logo:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Logo erfolgreich hochgeladen
+  /admin/documents:
+    post:
+      summary: Lädt ein PDF-Dokument hoch
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                document:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Dokument erfolgreich hochgeladen

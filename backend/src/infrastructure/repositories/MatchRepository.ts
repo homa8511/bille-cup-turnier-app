@@ -1,125 +1,144 @@
-import { PostgresClient } from '../database/PostgresClient';
-import { Match, SwissPairing, ScheduleUpdate } from '../../domain/models/Tournament';
+import { MatchData } from "../../domain/factories/TournamentFactories";
+import { ScheduleUpdate, SwissPairing } from "../../domain/models/Tournament";
+import { PostgresClient } from "../database/PostgresClient";
 
-// Dieses Repository kapselt alle Datenbankzugriffe für die Entitäten der Spiele.
+// Diese Klasse verwaltet alle Datenbankzugriffe für die Spiele.
 export class MatchRepository {
-    private db: PostgresClient;
+  private db: PostgresClient;
 
-    constructor() {
-        this.db = PostgresClient.getInstance();
+  constructor() {
+    this.db = PostgresClient.getInstance();
+  }
+
+  // Diese Methode ermittelt die höchste vergebene Spielnummer im System.
+  public async fetchMaxMatchNumber(): Promise<number> {
+    const query = "SELECT MAX(match_number) as max_num FROM matches";
+    const result = await this.db.query(query);
+    return result.rows[0].max_num || 0;
+  }
+
+  // Diese Methode speichert eine große Menge an Spielen auf einmal.
+  public async insertMassMatches(matches: any[]): Promise<void> {
+    for (const match of matches) {
+      await this.db.query(
+        `INSERT INTO matches (id, group_id, home_team_id, away_team_id, match_number, status, start_time, end_time) 
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          match.id,
+          match.group_id,
+          match.home_team_id,
+          match.away_team_id,
+          match.match_number,
+          match.status,
+          match.start_time,
+          match.end_time,
+        ],
+      );
     }
+  }
 
-    // Diese Methode lädt alle beendeten Spiele einer Gruppe, um die Tabelle zu berechnen.
-    public async fetchCompletedMatchesByGroup(groupId: string): Promise<Match[]> {
-        const query = `
-            SELECT * FROM matches 
-            WHERE group_id = $1 AND status = 'BEENDET'
+  // Diese Methode holt alle abgeschlossenen Spiele einer bestimmten Gruppe.
+  public async fetchCompletedMatchesByGroup(
+    groupId: string,
+  ): Promise<MatchData[]> {
+    const query = "SELECT * FROM matches WHERE group_id = $1 AND status = $2";
+    const result = await this.db.query(query, [groupId, "BEENDET"]);
+    return result.rows as MatchData[];
+  }
+
+  // Diese Methode holt alle Spiele einer bestimmten Gruppe.
+  public async fetchMatchesByGroup(groupId: string): Promise<MatchData[]> {
+    const query =
+      "SELECT * FROM matches WHERE group_id = $1 ORDER BY start_time ASC";
+    const result = await this.db.query(query, [groupId]);
+    return result.rows as MatchData[];
+  }
+
+  // Diese Methode holt alle Spiele einer bestimmten Turnierphase.
+  public async fetchMatchesByPhase(phase: string): Promise<MatchData[]> {
+    const query = `
+            SELECT m.* FROM matches m 
+            JOIN groups g ON m.group_id = g.id 
+            WHERE g.phase = $1 ORDER BY m.start_time ASC
         `;
-        const result = await this.db.query(query, [groupId]);
-        return result.rows;
-    }
+    const result = await this.db.query(query, [phase]);
+    return result.rows as MatchData[];
+  }
 
-    // Diese Methode lädt alle Spiele einer bestimmten Turnierphase, z.B. für die Zeitplanung.
-    public async fetchMatchesByPhase(phase: string): Promise<Match[]> {
-        const query = `
-            SELECT m.* FROM matches m
-            JOIN groups g ON m.group_id = g.id
-            WHERE g.phase = $1
-            ORDER BY m.group_id, m.match_number ASC
-        `;
-        const result = await this.db.query(query, [phase]);
-        return result.rows;
-    }
+  // Diese Methode generiert eine Matrix aller bisherigen Begegnungen.
+  public async fetchCompleteMatchHistory(): Promise<Record<string, string[]>> {
+    const query =
+      "SELECT home_team_id, away_team_id FROM matches WHERE home_team_id IS NOT NULL AND away_team_id IS NOT NULL";
+    const result = await this.db.query(query);
+    const history: Record<string, string[]> = {};
 
-    // Diese Methode speichert ein Spielergebnis und aktualisiert den Status.
-    public async updateMatchResult(matchId: string, goalsHome: number, goalsAway: number, status: string): Promise<Match | null> {
-        const query = `
-            UPDATE matches 
-            SET goals_home = $1, 
-                goals_away = $2, 
-                status = $3 
-            WHERE id = $4 
-            RETURNING *
-        `;
-        const result = await this.db.query(query, [goalsHome, goalsAway, status, matchId]);
-        return result.rows[0] || null;
-    }
+    result.rows.forEach((row: any) => {
+      if (!history[row.home_team_id]) history[row.home_team_id] = [];
+      if (!history[row.away_team_id]) history[row.away_team_id] = [];
+      history[row.home_team_id].push(row.away_team_id);
+      history[row.away_team_id].push(row.home_team_id);
+    });
 
-    // Diese Methode speichert die generierten Paarungen für eine Schweizer-System-Runde.
-    public async insertGeneratedPairings(groupId: string, pairings: SwissPairing[]): Promise<void> {
-        // Ermittelt die nächste freie Spielnummer für diese Gruppe.
-        const maxNumberQuery = `SELECT MAX(match_number) as max_num FROM matches WHERE group_id = $1`;
-        const maxNumberResult = await this.db.query(maxNumberQuery, [groupId]);
-        let nextMatchNumber = (maxNumberResult.rows[0]?.max_num || 0) + 1;
+    return history;
+  }
 
-        for (const pairing of pairings) {
-            const insertQuery = `
-                INSERT INTO matches (match_number, home_team_id, away_team_id, group_id, status)
-                VALUES ($1, $2, $3, $4, 'GEPLANT')
+  // Diese Methode speichert neue Paarungen für das Schweizer System und gibt diese zurück.
+  public async insertGeneratedPairingsAndReturn(
+    groupId: string,
+    pairings: SwissPairing[],
+  ): Promise<MatchData[]> {
+    const insertedMatches: MatchData[] = [];
+    let currentMatchNumber = (await this.fetchMaxMatchNumber()) + 1;
+
+    for (const pair of pairings) {
+      const query = `
+                INSERT INTO matches (group_id, home_team_id, away_team_id, match_number, status) 
+                VALUES ($1, $2, $3, $4, $5) RETURNING *
             `;
-            await this.db.query(insertQuery, [
-                nextMatchNumber++, 
-                pairing.home.team_id, 
-                pairing.away.team_id, 
-                groupId
-            ]);
-        }
+      const result = await this.db.query(query, [
+        groupId,
+        pair.home.team_id,
+        pair.away.team_id,
+        currentMatchNumber++,
+        "GEPLANT",
+      ]);
+      insertedMatches.push(result.rows[0] as MatchData);
     }
 
-    // Diese Methode aktualisiert die Start- und Endzeiten für eine Liste von Spielen.
-    public async updateMatchTimes(scheduleUpdates: ScheduleUpdate[]): Promise<void> {
-        for (const update of scheduleUpdates) {
-            const query = `
-                UPDATE matches 
-                SET start_time = $1, 
-                    end_time = $2 
-                WHERE id = $3
-            `;
-            await this.db.query(query, [update.start_time, update.end_time, update.match_id]);
-        }
-    }
+    return insertedMatches;
+  }
 
-    // Diese Methode lädt die Historie aller bereits gespielten Paarungen für eine Gruppe.
-    public async fetchMatchHistoryMatrix(groupId: string): Promise<Record<string, string[]>> {
-        const query = `
-            SELECT home_team_id, away_team_id 
-            FROM matches 
-            WHERE group_id = $1 AND status = 'BEENDET' AND home_team_id IS NOT NULL AND away_team_id IS NOT NULL
+  // Diese Methode aktualisiert ein Spielergebnis in der Datenbank.
+  public async updateMatchResult(
+    matchId: string,
+    goalsHome: number,
+    goalsAway: number,
+    status: string,
+  ): Promise<MatchData | null> {
+    const query = `
+            UPDATE matches SET goals_home = $1, goals_away = $2, status = $3 
+            WHERE id = $4 RETURNING *
         `;
-        const result = await this.db.query(query, [groupId]);
-        
-        const history: Record<string, string[]> = {};
-        
-        result.rows.forEach(match => {
-            if (!history[match.home_team_id]) history[match.home_team_id] = [];
-            if (!history[match.away_team_id]) history[match.away_team_id] = [];
-            
-            history[match.home_team_id].push(match.away_team_id);
-            history[match.away_team_id].push(match.home_team_id);
-        });
-        
-        return history;
-    }
+    const result = await this.db.query(query, [
+      goalsHome,
+      goalsAway,
+      status,
+      matchId,
+    ]);
+    return (result.rows[0] as MatchData) || null;
+  }
 
-    // Diese Methode lädt die komplette Historie aller Paarungen über das gesamte Turnier hinweg.
-    public async fetchCompleteMatchHistory(): Promise<Record<string, string[]>> {
-        const query = `
-            SELECT home_team_id, away_team_id 
-            FROM matches 
-            WHERE status = 'BEENDET' AND home_team_id IS NOT NULL AND away_team_id IS NOT NULL
-        `;
-        const result = await this.db.query(query);
-        
-        const history: Record<string, string[]> = {};
-        
-        result.rows.forEach(match => {
-            if (!history[match.home_team_id]) history[match.home_team_id] = [];
-            if (!history[match.away_team_id]) history[match.away_team_id] = [];
-            
-            history[match.home_team_id].push(match.away_team_id);
-            history[match.away_team_id].push(match.home_team_id);
-        });
-        
-        return history;
+  // Diese Methode speichert die neuen Anstoßzeiten für mehrere Spiele gleichzeitig.
+  public async updateMatchTimes(updates: ScheduleUpdate[]): Promise<void> {
+    for (const update of updates) {
+      await this.db.query(
+        "UPDATE matches SET start_time = $1, end_time = $2 WHERE id = $3",
+        [
+          update.start_time.toISOString(),
+          update.end_time.toISOString(),
+          update.match_id,
+        ],
+      );
     }
+  }
 }

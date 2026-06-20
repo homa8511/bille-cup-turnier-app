@@ -1,241 +1,347 @@
-import { 
-    Match, 
-    GroupStanding, 
-    CombinedStanding, 
-    SwissPairing, 
-    SeedingAssignment, 
-    FinalGroupsAllocation, 
-    ScheduleUpdate 
-} from '../models/Tournament';
+import { GroupStanding } from "../models/GroupStanding";
+import { Match } from "../models/Match";
+import {
+  CombinedStanding,
+  FinalGroupsAllocation,
+  ScheduleUpdate,
+  SeedingAssignment,
+  SwissPairing,
+} from "../models/Tournament";
 
-// Diese Klasse kapselt die reinen Geschäftsregeln des Turniers ohne externe Abhängigkeiten.
+// Diese Klasse bündelt alle domänenspezifischen Geschäftsregeln des Turniers in reinen Funktionen.
 export class TournamentService {
+  // Diese Methode berechnet die aktuelle Gruppentabelle anhand der beendeten Spiele.
+  public calculateStandings(
+    teams: { id: string }[],
+    completedMatches: Match[],
+  ): any[] {
+    const stats = new Map<string, GroupStanding>();
 
-    // Diese Methode berechnet die aktuelle Gruppentabelle anhand der beendeten Spiele.
-    public calculateStandings(teams: { id: string }[], completedMatches: Match[]): GroupStanding[] {
-        const stats = new Map<string, GroupStanding>();
+    teams.forEach((team) => {
+      stats.set(team.id, new GroupStanding(team.id));
+    });
 
-        // Initialisiert die Statistik für jedes Team mit Nullwerten.
-        teams.forEach(team => {
-            stats.set(team.id, {
-                team_id: team.id,
-                points: 0,
-                matches_played: 0,
-                goals_scored: 0,
-                goals_conceded: 0,
-                goal_diff: 0,
-                rank: 0
-            });
+    completedMatches.forEach((match) => {
+      const snapshot = match.extractSnapshot();
+      if (
+        snapshot.status !== "BEENDET" ||
+        !snapshot.home_team_id ||
+        !snapshot.away_team_id
+      )
+        return;
+
+      const homeGoals = snapshot.goals_home ?? 0;
+      const awayGoals = snapshot.goals_away ?? 0;
+
+      const homeStat = stats.get(snapshot.home_team_id);
+      const awayStat = stats.get(snapshot.away_team_id);
+
+      if (homeStat && awayStat) {
+        homeStat.processMatchPerformance(homeGoals, awayGoals);
+        awayStat.processMatchPerformance(awayGoals, homeGoals);
+      }
+    });
+
+    const standingsArray = Array.from(stats.values());
+
+    standingsArray.sort((a, b) => {
+      const snapA = a.extractSnapshot();
+      const snapB = b.extractSnapshot();
+
+      if (snapB.points !== snapA.points) return snapB.points - snapA.points;
+      if (snapB.goal_difference !== snapA.goal_difference)
+        return snapB.goal_difference - snapA.goal_difference;
+      return snapB.goals_scored - snapA.goals_scored;
+    });
+
+    standingsArray.forEach((stat, index) => {
+      stat.assignFinalRank(index + 1);
+    });
+
+    return standingsArray.map((stat) => stat.extractSnapshot());
+  }
+
+  // Diese Methode aggregiert die Gruppentabellen zu einer Gesamttabelle für die Finalrunde.
+  public calculateCombinedStandings(
+    allPhaseStandings: any[],
+    allMatches: Match[],
+  ): CombinedStanding[] {
+    const aggregated = new Map<string, CombinedStanding>();
+
+    allPhaseStandings.forEach((stat) => {
+      if (!aggregated.has(stat.team_id)) {
+        aggregated.set(stat.team_id, {
+          team_id: stat.team_id,
+          total_points: 0,
+          total_scored: 0,
+          total_conceded: 0,
+          goal_diff: 0,
+          final_rank: 0,
         });
+      }
+      const current = aggregated.get(stat.team_id)!;
+      current.total_points += stat.points || 0;
+      current.total_scored += stat.goals_scored || 0;
+      current.total_conceded += stat.goals_conceded || 0;
+      current.goal_diff = current.total_scored - current.total_conceded;
+    });
 
-        // Addiert die Punkte und Tore aus allen abgeschlossenen Spielen.
-        completedMatches.forEach(match => {
-            if (match.status !== 'BEENDET' || !match.home_team_id || !match.away_team_id) return;
-            
-            const homeGoals = match.goals_home ?? 0;
-            const awayGoals = match.goals_away ?? 0;
-            
-            const homeStat = stats.get(match.home_team_id);
-            const awayStat = stats.get(match.away_team_id);
+    const combinedArray = Array.from(aggregated.values());
 
-            if (homeStat && awayStat) {
-                homeStat.matches_played++;
-                awayStat.matches_played++;
-                homeStat.goals_scored += homeGoals;
-                awayStat.goals_scored += awayGoals;
-                homeStat.goals_conceded += awayGoals;
-                awayStat.goals_conceded += homeGoals;
+    combinedArray.sort((a, b) => {
+      if (b.total_points !== a.total_points)
+        return b.total_points - a.total_points;
+      if (b.goal_diff !== a.goal_diff) return b.goal_diff - a.goal_diff;
+      if (b.total_scored !== a.total_scored)
+        return b.total_scored - a.total_scored;
 
-                if (homeGoals > awayGoals) {
-                    homeStat.points += 3;
-                } else if (homeGoals < awayGoals) {
-                    awayStat.points += 3;
-                } else {
-                    homeStat.points += 1;
-                    awayStat.points += 1;
-                }
-            }
-        });
+      const h2hMatch = allMatches.find((m) => {
+        const s = m.extractSnapshot();
+        return (
+          s.status === "BEENDET" &&
+          ((s.home_team_id === a.team_id && s.away_team_id === b.team_id) ||
+            (s.home_team_id === b.team_id && s.away_team_id === a.team_id))
+        );
+      });
 
-        const standingsArray = Array.from(stats.values());
+      if (h2hMatch) {
+        const s = h2hMatch.extractSnapshot();
+        const aGoals =
+          s.home_team_id === a.team_id ? s.goals_home! : s.goals_away!;
+        const bGoals =
+          s.home_team_id === b.team_id ? s.goals_home! : s.goals_away!;
+        return bGoals - aGoals;
+      }
 
-        // Aktualisiert die Tordifferenz für alle Teams.
-        standingsArray.forEach(stat => {
-            stat.goal_diff = stat.goals_scored - stat.goals_conceded;
-        });
+      return 0;
+    });
 
-        // Sortiert die Tabelle nach Punkten, Tordifferenz und geschossenen Toren.
-        standingsArray.sort((a, b) => {
-            if (b.points !== a.points) return b.points - a.points;
-            if (b.goal_diff !== a.goal_diff) return b.goal_diff - a.goal_diff;
-            return b.goals_scored - a.goals_scored;
-        });
+    return combinedArray.map((stat, index) => ({
+      ...stat,
+      final_rank: index + 1,
+    }));
+  }
 
-        // Vergibt die finalen Platzierungen basierend auf der Sortierung.
-        return standingsArray.map((stat, index) => ({
-            ...stat,
-            rank: index + 1
-        }));
-    }
+  // Diese Methode teilt das Feld anhand der Gesamttabelle in Gold und Silber auf.
+  public splitIntoGoldAndSilver(
+    combinedStandings: CombinedStanding[],
+  ): FinalGroupsAllocation {
+    return {
+      gold: combinedStandings.slice(0, 12),
+      silver: combinedStandings.slice(12, 24),
+    };
+  }
 
-    // Diese Methode teilt das Teilnehmerfeld nach der Zwischenrunde in zwei Leistungsklassen auf.
-    public splitIntoGoldAndSilver(combinedStandings: CombinedStanding[]): FinalGroupsAllocation {
-        return {
-            gold: combinedStandings.slice(0, 12),
-            silver: combinedStandings.slice(12, 24)
-        };
-    }
+  // Diese Methode generiert die anfängliche Setzliste nach dem Schlangensystem.
+  public distributeSnakeSeeding(
+    vorrundenStandings: CombinedStanding[],
+    vorrundenMatchHistory: Record<string, string[]>,
+  ): SeedingAssignment[] {
+    const targetGroups = [
+      "Gruppe G",
+      "Gruppe H",
+      "Gruppe I",
+      "Gruppe J",
+      "Gruppe K",
+      "Gruppe L",
+    ];
+    const waves = [
+      [0, 1, 2, 3, 4, 5],
+      [11, 10, 9, 8, 7, 6],
+      [12, 13, 14, 15, 16, 17],
+      [23, 22, 21, 20, 19, 18],
+    ];
 
-    // Diese Methode verteilt die Mannschaften nach dem Schlangensystem auf die Zwischenrundengruppen.
-    public distributeSnakeSeeding(
-        vorrundenStandings: CombinedStanding[], 
-        matchHistory: Record<string, string[]>
-    ): SeedingAssignment[] {
-        const targetGroups = ['Gruppe G', 'Gruppe H', 'Gruppe I', 'Gruppe J', 'Gruppe K', 'Gruppe L'];
-        const waves = [
-            [0, 1, 2, 3, 4, 5],
-            [11, 10, 9, 8, 7, 6],
-            [12, 13, 14, 15, 16, 17],
-            [23, 22, 21, 20, 19, 18]
-        ];
+    let seeding: SeedingAssignment[] = [];
 
-        let seeding: SeedingAssignment[] = [];
+    for (let waveIndex = 0; waveIndex < waves.length; waveIndex++) {
+      const wave = waves[waveIndex];
+      let currentWaveTeams: SeedingAssignment[] = [];
 
-        // Durchläuft die definierten Wellen des Schlangensystems.
-        for (let waveIndex = 0; waveIndex < waves.length; waveIndex++) {
-            const wave = waves[waveIndex];
-            let currentWaveTeams: SeedingAssignment[] = [];
-
-            // Weist den Teams ihre initialen Gruppenplätze zu.
-            for (let i = 0; i < wave.length; i++) {
-                const teamIndex = wave[i];
-                if (vorrundenStandings[teamIndex]) {
-                    currentWaveTeams.push({
-                        team_id: vorrundenStandings[teamIndex].team_id,
-                        original_rank: teamIndex + 1,
-                        assigned_group: targetGroups[i]
-                    });
-                }
-            }
-
-            // Löst Gruppenkonflikte durch einen Tausch innerhalb der Welle auf.
-            for (let i = 0; i < currentWaveTeams.length; i++) {
-                for (let j = i + 1; j < currentWaveTeams.length; j++) {
-                    const teamA = currentWaveTeams[i];
-                    const teamB = currentWaveTeams[j];
-                    const historyA = matchHistory[teamA.team_id] || [];
-                    
-                    const conflict = historyA.includes(teamB.team_id);
-                    
-                    if (conflict) {
-                        const tempGroup = teamA.assigned_group;
-                        teamA.assigned_group = teamB.assigned_group;
-                        teamB.assigned_group = tempGroup;
-                    }
-                }
-            }
-
-            seeding.push(...currentWaveTeams);
+      for (let i = 0; i < wave.length; i++) {
+        const teamIndex = wave[i];
+        if (vorrundenStandings[teamIndex]) {
+          currentWaveTeams.push({
+            team_id: vorrundenStandings[teamIndex].team_id,
+            original_rank: teamIndex + 1,
+            assigned_group: targetGroups[i],
+          });
         }
+      }
 
-        return seeding;
-    }
+      for (let i = 0; i < currentWaveTeams.length; i++) {
+        for (let j = i + 1; j < currentWaveTeams.length; j++) {
+          const teamA = currentWaveTeams[i];
+          const teamB = currentWaveTeams[j];
+          const historyA = vorrundenMatchHistory[teamA.team_id] || [];
 
-    // Diese rekursive Methode sucht überschneidungsfreie Paarungen für das Schweizer System.
-    public calculateSwissPairings(
-        currentStandings: GroupStanding[], 
-        matchHistory: Record<string, string[]>
-    ): SwissPairing[] {
-        
-        const sortedTeams = [...currentStandings].sort((a, b) => a.rank - b.rank);
-        
-        // Diese Hilfsfunktion führt das eigentliche Backtracking durch.
-        const findPairings = (teamsToPair: GroupStanding[], currentPairings: SwissPairing[]): SwissPairing[] | null => {
-            if (teamsToPair.length === 0) return currentPairings;
+          const conflict = historyA.includes(teamB.team_id);
 
-            const homeTeam = teamsToPair[0];
-            const history = matchHistory[homeTeam.team_id] || [];
-            
-            // Sucht den nächsten möglichen Gegner in der Rangliste.
-            for (let i = 1; i < teamsToPair.length; i++) {
-                const awayTeam = teamsToPair[i];
-                const hasPlayed = history.includes(awayTeam.team_id);
-                
-                if (!hasPlayed) {
-                    const newPairings = [...currentPairings, { 
-                        home: { team_id: homeTeam.team_id, rank: homeTeam.rank }, 
-                        away: { team_id: awayTeam.team_id, rank: awayTeam.rank } 
-                    }];
-                    
-                    const remainingTeams = teamsToPair.filter(
-                        t => t.team_id !== homeTeam.team_id && t.team_id !== awayTeam.team_id
-                    );
-                    
-                    const result = findPairings(remainingTeams, newPairings);
-                    if (result) return result;
-                }
-            }
-            
-            return null;
-        };
-
-        const optimalPairings = findPairings(sortedTeams, []);
-
-        // Greift auf eine Notlösung zurück, falls keine perfekten Paarungen existieren.
-        if (!optimalPairings && sortedTeams.length >= 2) {
-            let fallbackPairings: SwissPairing[] = [];
-            for (let i = 0; i < sortedTeams.length - 1; i += 2) {
-                fallbackPairings.push({
-                    home: { team_id: sortedTeams[i].team_id, rank: sortedTeams[i].rank },
-                    away: { team_id: sortedTeams[i+1].team_id, rank: sortedTeams[i+1].rank }
-                });
-            }
-            return fallbackPairings;
+          if (conflict) {
+            const tempGroup = teamA.assigned_group;
+            teamA.assigned_group = teamB.assigned_group;
+            teamB.assigned_group = tempGroup;
+          }
         }
+      }
 
-        return optimalPairings || [];
+      seeding.push(...currentWaveTeams);
     }
 
-    // Diese Methode plant die Startzeiten der Spiele innerhalb einer Turnierphase neu.
-    public calculateSchedule(
-        phaseMatches: Match[], 
-        startTimeIso: string, 
-        matchDurationMinutes: number = 10, 
-        pauseDurationMinutes: number = 2
-    ): ScheduleUpdate[] {
-        
-        const scheduleUpdates: ScheduleUpdate[] = [];
-        const matchesByGroup = new Map<string, Match[]>();
+    return seeding;
+  }
 
-        // Gruppiert die Spiele nach ihrer jeweiligen Gruppe.
-        phaseMatches.forEach(match => {
-            if (!matchesByGroup.has(match.group_id)) {
-                matchesByGroup.set(match.group_id, []);
-            }
-            matchesByGroup.get(match.group_id)!.push(match);
+  // Diese Backtracking-Methode berechnet die exakten Schweizer-System-Paarungen.
+  public calculateSwissPairings(
+    currentStandings: any[],
+    completeMatchHistory: Record<string, string[]>,
+  ): SwissPairing[] {
+    const sortedTeams = [...currentStandings].sort((a, b) => a.rank - b.rank);
+
+    const findPairings = (
+      teamsToPair: any[],
+      currentPairings: SwissPairing[],
+    ): SwissPairing[] | null => {
+      if (teamsToPair.length === 0) return currentPairings;
+
+      const homeTeam = teamsToPair[0];
+      const history = completeMatchHistory[homeTeam.team_id] || [];
+
+      for (let i = 1; i < teamsToPair.length; i++) {
+        const awayTeam = teamsToPair[i];
+        const hasPlayedBefore = history.includes(awayTeam.team_id);
+
+        if (!hasPlayedBefore) {
+          const newPairings = [
+            ...currentPairings,
+            {
+              home: { team_id: homeTeam.team_id, rank: homeTeam.rank },
+              away: { team_id: awayTeam.team_id, rank: awayTeam.rank },
+            },
+          ];
+
+          const remainingTeams = teamsToPair.filter(
+            (t) =>
+              t.team_id !== homeTeam.team_id && t.team_id !== awayTeam.team_id,
+          );
+
+          const result = findPairings(remainingTeams, newPairings);
+          if (result) return result;
+        }
+      }
+
+      return null;
+    };
+
+    const optimalPairings = findPairings(sortedTeams, []);
+
+    if (!optimalPairings && sortedTeams.length >= 2) {
+      let fallbackPairings: SwissPairing[] = [];
+      for (let i = 0; i < sortedTeams.length - 1; i += 2) {
+        fallbackPairings.push({
+          home: { team_id: sortedTeams[i].team_id, rank: sortedTeams[i].rank },
+          away: {
+            team_id: sortedTeams[i + 1].team_id,
+            rank: sortedTeams[i + 1].rank,
+          },
         });
-
-        // Berechnet die exakten Zeiten sequenziell für jede Gruppe.
-        matchesByGroup.forEach((groupMatches, groupId) => {
-            // Sortiert die Spiele aufsteigend nach ihrer Spielnummer.
-            groupMatches.sort((a, b) => a.match_number - b.match_number);
-            
-            let currentStartTime = new Date(startTimeIso).getTime();
-
-            groupMatches.forEach(match => {
-                const start = new Date(currentStartTime);
-                const end = new Date(currentStartTime + matchDurationMinutes * 60000);
-
-                scheduleUpdates.push({
-                    match_id: match.id,
-                    start_time: start,
-                    end_time: end
-                });
-
-                currentStartTime = end.getTime() + (pauseDurationMinutes * 60000);
-            });
-        });
-
-        return scheduleUpdates;
+      }
+      return fallbackPairings;
     }
+
+    return optimalPairings || [];
+  }
+
+  // Diese Methode generiert alle Paarungen für die Jeder-gegen-Jeden-Gruppen.
+  public generateRoundRobinPairings(
+    teamIds: string[],
+  ): { home: string; away: string }[] {
+    const pairings: { home: string; away: string }[] = [];
+    for (let i = 0; i < teamIds.length; i++) {
+      for (let j = i + 1; j < teamIds.length; j++) {
+        pairings.push({ home: teamIds[i], away: teamIds[j] });
+      }
+    }
+    return pairings;
+  }
+
+  // Diese Methode plant die genauen Anstoßzeiten für eine Reihe von Spielen ein.
+  public calculateSchedule(
+    phaseMatches: Match[],
+    startTimeIso: string,
+    matchDurationMinutes: number = 10,
+    pauseDurationMinutes: number = 2,
+  ): ScheduleUpdate[] {
+    const scheduleUpdates: ScheduleUpdate[] = [];
+    const matchesByGroup = new Map<string, Match[]>();
+
+    phaseMatches.forEach((match) => {
+      const snapshot = match.extractSnapshot();
+      if (!matchesByGroup.has(snapshot.group_id)) {
+        matchesByGroup.set(snapshot.group_id, []);
+      }
+      matchesByGroup.get(snapshot.group_id)!.push(match);
+    });
+
+    matchesByGroup.forEach((groupMatches, groupId) => {
+      groupMatches.sort(
+        (a, b) =>
+          a.extractSnapshot().match_number! - b.extractSnapshot().match_number!,
+      );
+
+      let currentStartTime = new Date(startTimeIso).getTime();
+
+      groupMatches.forEach((match) => {
+        const start = new Date(currentStartTime);
+        const end = new Date(currentStartTime + matchDurationMinutes * 60000);
+
+        scheduleUpdates.push({
+          match_id: match.extractSnapshot().id,
+          start_time: start,
+          end_time: end,
+        });
+
+        currentStartTime = end.getTime() + pauseDurationMinutes * 60000;
+      });
+    });
+
+    return scheduleUpdates;
+  }
+
+  // Diese Methode plant die Zeiten für genau eine Spielrunde (6 Felder parallel) der Finalrunde.
+  public scheduleSingleFinalRound(
+    roundMatches: Match[],
+    startTimeIso: string,
+    matchDurationMinutes: number = 10,
+  ): ScheduleUpdate[] {
+    const scheduleUpdates: ScheduleUpdate[] = [];
+    const start = new Date(startTimeIso);
+    const end = new Date(start.getTime() + matchDurationMinutes * 60000);
+
+    roundMatches.forEach((match) => {
+      scheduleUpdates.push({
+        match_id: match.extractSnapshot().id,
+        start_time: start,
+        end_time: end,
+      });
+    });
+
+    return scheduleUpdates;
+  }
+
+  // Diese Methode prüft, ob eine Finalgruppe bereits ihre maximalen sechs Runden erreicht hat.
+  public isFinalGroupComplete(matchesInGroup: Match[]): boolean {
+    const playedMatches = matchesInGroup.filter(
+      (m) => m.extractSnapshot().status === "BEENDET",
+    );
+    return playedMatches.length >= 36;
+  }
+
+  // Diese Methode prüft, ob alle Spiele der aktuellen Runde einer Gruppe abgeschlossen sind.
+  public isCurrentRoundComplete(matchesInGroup: Match[]): boolean {
+    const pendingMatches = matchesInGroup.filter(
+      (m) => m.extractSnapshot().status !== "BEENDET",
+    );
+    return pendingMatches.length === 0 && matchesInGroup.length > 0;
+  }
 }
