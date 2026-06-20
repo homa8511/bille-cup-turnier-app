@@ -71,7 +71,7 @@ describe("App Hauptkomponente", () => {
     render(<App />);
 
     // Act
-    const infoTabButton = screen.getByText("Turnierinfos");
+    const infoTabButton = screen.getByRole("button", { name: /Turnierinfos/i });
     fireEvent.click(infoTabButton);
 
     // Assert
@@ -94,7 +94,7 @@ describe("App Hauptkomponente", () => {
     // Alternativ suchen wir den Button, der keine Textbeschriftung hat, aber ein svg enthält
     const loginButton = screen
       .getAllByRole("button")
-      .find((btn) => btn.innerHTML.includes("svg") && !btn.textContent);
+      .find((btn) => btn.innerHTML.includes("lucide-log-in"));
 
     // Act
     if (loginButton) {
