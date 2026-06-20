@@ -1,12 +1,6 @@
 name: Build and Push Frontend Docker Image
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "frontend/**"
-      - ".github/workflows/frontend-docker-build.yml"
   workflow_dispatch:
 
 env:
