@@ -31,7 +31,7 @@ describe('MatchRepository', () => {
         const result = await repository.fetchCompletedMatchesByGroup('g1');
 
         // Die Methode verwendet die übergebene Gruppen-ID für die Suche.
-        expect(mockDb.query).toHaveBeenCalledWith(expect.any(String), ['g1']);
+        expect(mockDb.query).toHaveBeenCalledWith(expect.any(String), ['g1', 'BEENDET']);
         // Die Rückgabe enthält die beendeten Spiele.
         expect(result).toEqual(mockRows);
     });
@@ -48,13 +48,13 @@ describe('MatchRepository', () => {
         expect(result).toEqual(mockMatch);
     });
 
-    test('fetchMatchHistoryMatrix erstellt eine korrekte Matrix', async () => {
+    test('fetchCompleteMatchHistory erstellt eine korrekte Matrix', async () => {
         const mockRows = [
             { home_team_id: 't1', away_team_id: 't2' }
         ];
         mockDb.query.mockResolvedValueOnce({ rows: mockRows });
 
-        const history = await repository.fetchMatchHistoryMatrix('g1');
+        const history = await repository.fetchCompleteMatchHistory();
 
         // Das Team t1 hat laut Matrix gegen t2 gespielt.
         expect(history['t1']).toContain('t2');
