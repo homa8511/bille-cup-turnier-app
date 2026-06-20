@@ -1,0 +1,54 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: billecup-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: billecup
+    ports:
+      - "5432:5432"
+    volumes:
+      # Die Skripte in diesem Ordner werden beim ersten Start alphabetisch ausgeführt
+      - ./database/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./database/testing.sql:/docker-entrypoint-initdb.d/02-testing.sql
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - dev-net
+
+  backend:
+    build:
+      context: ./backend
+    container_name: billecup-backend
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: billecup
+      JWT_SECRET: lokales_entwicklungs_geheimnis_2026
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+    networks:
+      - dev-net
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: billecup-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    networks:
+      - dev-net
+
+networks:
+  dev-net:
+    driver: bridge
+
+volumes:
+  pgdata:

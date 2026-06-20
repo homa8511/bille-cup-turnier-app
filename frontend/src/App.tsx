@@ -127,8 +127,7 @@ const renderMarkdown = (text: string) => {
 };
 
 export default function App() {
-  const { teams, groups, matches, isLoading, error, refetch } =
-    useTournamentData();
+  const { teams, groups, matches, isLoading, refetch } = useTournamentData();
 
   const [activeTab, setActiveTab] = useState("VORRUNDE");
   const [language, setLanguage] = useState("de");
@@ -182,7 +181,7 @@ export default function App() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch("http://localhost:3000/api/admin/login", {
+      const response = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(loginForm),
@@ -192,10 +191,10 @@ export default function App() {
         setAdminToken(data.token);
         setShowLoginModal(false);
       } else {
-        alert("Login fehlgeschlagen. Läuft das Backend auf Port 3000?");
+        alert("Login fehlgeschlagen.");
       }
     } catch (err) {
-      alert("Netzwerkfehler beim Login. Bitte starte das Backend.");
+      alert("Netzwerkfehler beim Login.");
     }
   };
 
@@ -206,17 +205,14 @@ export default function App() {
   ) => {
     if (!adminToken) return;
     try {
-      const response = await fetch(
-        `http://localhost:3000/api/admin/matches/${matchId}/result`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${adminToken}`,
-          },
-          body: JSON.stringify({ goals_home: home, goals_away: away }),
+      const response = await fetch(`/api/admin/matches/${matchId}/result`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
         },
-      );
+        body: JSON.stringify({ goals_home: home, goals_away: away }),
+      });
       if (response.ok) {
         refetch();
       }
