@@ -1,0 +1,108 @@
+import { fireEvent, render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import App from "../src/App";
+import * as useTournamentDataHook from "../src/hooks/useTournamentData";
+
+// Wir mocken den gesamten Hook, um die API-Aufrufe im Test zu verhindern.
+vi.mock("../src/hooks/useTournamentData");
+
+describe("App Hauptkomponente", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should display the loading screen when data is being fetched", () => {
+    // Arrange
+    vi.spyOn(useTournamentDataHook, "useTournamentData").mockReturnValue({
+      teams: [],
+      groups: [],
+      matches: [],
+      isLoading: true,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    // Act
+    render(<App />);
+
+    // Assert
+    expect(
+      screen.getByText("Turnierdaten werden geladen..."),
+    ).toBeInTheDocument();
+  });
+
+  it("should render the tournament interface when data is successfully loaded", () => {
+    // Arrange
+    vi.spyOn(useTournamentDataHook, "useTournamentData").mockReturnValue({
+      teams: [{ id: "t1", name: "FC Bergedorf 85", logo_path: null }],
+      groups: [
+        {
+          id: "g1",
+          name: "Gruppe A",
+          phase: "VORRUNDE",
+          field_numbers: [1],
+          standings: [],
+        },
+      ],
+      matches: [],
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    // Act
+    render(<App />);
+
+    // Assert
+    expect(screen.getByText("U10 Bille Cup 2026")).toBeInTheDocument();
+    expect(screen.getByText("Gruppe A")).toBeInTheDocument();
+  });
+
+  it("should switch to the info tab when the corresponding button is clicked", () => {
+    // Arrange
+    vi.spyOn(useTournamentDataHook, "useTournamentData").mockReturnValue({
+      teams: [],
+      groups: [],
+      matches: [],
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+    render(<App />);
+
+    // Act
+    const infoTabButton = screen.getByText("Turnierinfos");
+    fireEvent.click(infoTabButton);
+
+    // Assert
+    expect(screen.getByText("Turnierregeln")).toBeInTheDocument();
+  });
+
+  it("should open the login modal when the login button is clicked", () => {
+    // Arrange
+    vi.spyOn(useTournamentDataHook, "useTournamentData").mockReturnValue({
+      teams: [],
+      groups: [],
+      matches: [],
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+    render(<App />);
+
+    // Wir suchen den Login-Button anhand des Icons (welches durch lucide-react gerendert wird)
+    // Alternativ suchen wir den Button, der keine Textbeschriftung hat, aber ein svg enthält
+    const loginButton = screen
+      .getAllByRole("button")
+      .find((btn) => btn.innerHTML.includes("svg") && !btn.textContent);
+
+    // Act
+    if (loginButton) {
+      fireEvent.click(loginButton);
+    }
+
+    // Assert
+    expect(screen.getByText("Benutzername")).toBeInTheDocument();
+    expect(screen.getByText("Passwort")).toBeInTheDocument();
+  });
+});

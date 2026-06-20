@@ -1,0 +1,57 @@
+/* Dies ist die zentrale CSS-Datei für das Frontend. */
+/* Tailwind CSS Direktiven sind für die Basis-Formatierung zwingend erforderlich. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Dieses Styling wird auf den gesamten Körper des Dokuments angewendet. */
+  body {
+    @apply bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-200 antialiased;
+  }
+}
+
+@layer utilities {
+  /* Diese Klasse unterdrückt den standardmäßigen Scrollbalken in Firefox und IE. */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Diese Klasse unterdrückt den standardmäßigen Scrollbalken in Chrome und Safari. */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Diese Regeln steuern das Aussehen der in Markdown formatierten Inhalte. */
+.prose {
+  color: inherit;
+  line-height: 1.6;
+}
+
+.prose h1,
+.prose h2,
+.prose h3 {
+  color: inherit;
+  font-weight: 700;
+}
+
+.prose a {
+  color: #3b82f6;
+  text-decoration: underline;
+}
+
+.prose ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.prose img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
