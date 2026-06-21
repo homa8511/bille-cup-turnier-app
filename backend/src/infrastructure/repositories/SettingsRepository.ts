@@ -1,53 +1,53 @@
-import { PostgresClient } from '../database/PostgresClient';
+import { PostgresClient } from "../database/PostgresClient";
 
 export interface TournamentConfig {
-    match_duration_minutes: number;
-    pause_duration_minutes: number;
-    phase_start_time: string | null;
-    tournament_logo_path: string | null;
-    background_image_path: string | null;
-    background_image_mobile_path: string | null;
-    footer_text_de: string | null;
-    footer_text_en: string | null;
+  match_duration_minutes: number;
+  pause_duration_minutes: number;
+  phase_start_time: string | null;
+  tournament_logo_path: string | null;
+  background_image_path: string | null;
+  background_image_mobile_path: string | null;
+  footer_text_de: string | null;
+  footer_text_en: string | null;
 }
 
 export class SettingsRepository {
-    private db: PostgresClient;
+  private db: PostgresClient;
 
-    constructor() {
-        this.db = PostgresClient.getInstance();
-    }
+  constructor() {
+    this.db = PostgresClient.getInstance();
+  }
 
-    public async fetchConfig(): Promise<TournamentConfig> {
-        const query = `
+  public async fetchConfig(): Promise<TournamentConfig> {
+    const query = `
             SELECT match_duration_minutes, pause_duration_minutes, phase_start_time, 
                    tournament_logo_path, background_image_path, background_image_mobile_path, 
                    footer_text_de, footer_text_en
             FROM tournament_settings LIMIT 1
         `;
-        const result = await this.db.query(query);
-        
-        if (result.rows.length === 0) {
-            return {
-                match_duration_minutes: 10,
-                pause_duration_minutes: 2,
-                phase_start_time: '2026-06-27T09:00:00Z',
-                tournament_logo_path: null,
-                background_image_path: null,
-                background_image_mobile_path: null,
-                footer_text_de: '© 2026 Bille Cup - Alle Rechte vorbehalten.',
-                footer_text_en: '© 2026 Bille Cup - All rights reserved.'
-            };
-        }
-        
-        return result.rows[0] as TournamentConfig;
+    const result = await this.db.query(query);
+
+    if (result.rows.length === 0) {
+      return {
+        match_duration_minutes: 10,
+        pause_duration_minutes: 2,
+        phase_start_time: "2026-06-27T09:00:00Z",
+        tournament_logo_path: null,
+        background_image_path: null,
+        background_image_mobile_path: null,
+        footer_text_de: "© 2026 Bille Cup - Alle Rechte vorbehalten.",
+        footer_text_en: "© 2026 Bille Cup - All rights reserved.",
+      };
     }
 
-    public async updateConfig(config: Partial<TournamentConfig>): Promise<void> {
-        const currentConfig = await this.fetchConfig();
-        const mergedConfig = { ...currentConfig, ...config };
+    return result.rows[0] as TournamentConfig;
+  }
 
-        const query = `
+  public async updateConfig(config: Partial<TournamentConfig>): Promise<void> {
+    const currentConfig = await this.fetchConfig();
+    const mergedConfig = { ...currentConfig, ...config };
+
+    const query = `
             INSERT INTO tournament_settings (
                 id, match_duration_minutes, pause_duration_minutes, phase_start_time,
                 tournament_logo_path, background_image_path, background_image_mobile_path, 
@@ -64,15 +64,15 @@ export class SettingsRepository {
                 footer_text_de = $7,
                 footer_text_en = $8
         `;
-        await this.db.query(query, [
-            mergedConfig.match_duration_minutes, 
-            mergedConfig.pause_duration_minutes, 
-            mergedConfig.phase_start_time,
-            mergedConfig.tournament_logo_path,
-            mergedConfig.background_image_path,
-            mergedConfig.background_image_mobile_path,
-            mergedConfig.footer_text_de,
-            mergedConfig.footer_text_en
-        ]);
-    }
+    await this.db.query(query, [
+      mergedConfig.match_duration_minutes,
+      mergedConfig.pause_duration_minutes,
+      mergedConfig.phase_start_time,
+      mergedConfig.tournament_logo_path,
+      mergedConfig.background_image_path,
+      mergedConfig.background_image_mobile_path,
+      mergedConfig.footer_text_de,
+      mergedConfig.footer_text_en,
+    ]);
+  }
 }

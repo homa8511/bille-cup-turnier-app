@@ -77,6 +77,77 @@ components:
           type: string
         content_en:
           type: string
+    InitTournamentRequest:
+      type: object
+      required:
+        - matchDuration
+        - pauseDuration
+        - vorrundeStartTime
+        - zwischenrundeStartTime
+        - finalrundeStartTime
+        - teams
+        - groups
+      properties:
+        matchDuration:
+          type: integer
+          minimum: 1
+          maximum: 120
+        pauseDuration:
+          type: integer
+          minimum: 0
+          maximum: 60
+        vorrundeStartTime:
+          type: string
+          format: date-time
+        zwischenrundeStartTime:
+          type: string
+          format: date-time
+        finalrundeStartTime:
+          type: string
+          format: date-time
+        teams:
+          type: array
+          minItems: 2
+          items:
+            type: object
+            required:
+              - id
+              - name
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+        groups:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required:
+              - id
+              - name
+              - phase
+              - fieldNumbers
+              - teamIds
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+              phase:
+                type: string
+                enum: [VORRUNDE, ZWISCHENRUNDE, FINALRUNDE]
+              fieldNumbers:
+                type: array
+                items:
+                  type: integer
+              teamIds:
+                type: array
+                items:
+                  type: string
+                  format: uuid
 paths:
   /admin/login:
     post:
@@ -86,9 +157,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/LoginRequest'
+              $ref: "#/components/schemas/LoginRequest"
       responses:
-        '200':
+        "200":
           description: Erfolgreicher Login
           content:
             application/json:
@@ -97,31 +168,49 @@ paths:
                 properties:
                   token:
                     type: string
-        '401':
+        "401":
           description: Ungültige Zugangsdaten
+  /admin/initialize:
+    post:
+      summary: Initialisiert das Turnier und generiert den Spielplan
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InitTournamentRequest"
+      responses:
+        "200":
+          description: Turnier erfolgreich initialisiert
+        "400":
+          description: Validierungsfehler der Eingabedaten
+        "401":
+          description: Nicht autorisiert
   /teams:
     get:
       summary: Ruft alle Mannschaften ab
       responses:
-        '200':
+        "200":
           description: Liste der Mannschaften
   /groups:
     get:
       summary: Ruft alle Gruppen inklusive Tabellen ab
       responses:
-        '200':
+        "200":
           description: Liste der Gruppen
   /matches:
     get:
       summary: Ruft den gesamten Spielplan ab
       responses:
-        '200':
+        "200":
           description: Liste der Spiele
   /settings:
     get:
       summary: Ruft die globalen Turniereinstellungen ab
       responses:
-        '200':
+        "200":
           description: Aktuelle Einstellungen
   /pages/{slug}:
     get:
@@ -140,15 +229,15 @@ paths:
             enum: [de, en]
             default: de
       responses:
-        '200':
+        "200":
           description: Seiteninhalt
-        '404':
+        "404":
           description: Seite nicht gefunden
   /live:
     get:
       summary: Server-Sent Events (SSE) Endpunkt für Live-Updates
       responses:
-        '200':
+        "200":
           description: SSE Stream
           content:
             text/event-stream:
@@ -164,11 +253,11 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SettingsRequest'
+              $ref: "#/components/schemas/SettingsRequest"
       responses:
-        '200':
+        "200":
           description: Einstellungen erfolgreich aktualisiert
-        '401':
+        "401":
           description: Nicht autorisiert
   /admin/pages/{slug}:
     put:
@@ -186,9 +275,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PageContentRequest'
+              $ref: "#/components/schemas/PageContentRequest"
       responses:
-        '200':
+        "200":
           description: Seite erfolgreich aktualisiert
   /admin/matches/{id}/result:
     post:
@@ -207,10 +296,27 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/MatchResultRequest'
+              $ref: "#/components/schemas/MatchResultRequest"
       responses:
-        '200':
+        "200":
           description: Ergebnis erfolgreich gespeichert
+  /admin/groups/{groupId}/generate-swiss:
+    post:
+      summary: Generiert die nächste Runde im Schweizer System
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Paarungen erfolgreich generiert
+        "500":
+          description: Fehler bei der Generierung (z.B. keine überschneidungsfreien Paarungen)
   /admin/settings/logo:
     post:
       summary: Lädt das Turnierlogo hoch
@@ -227,8 +333,44 @@ paths:
                   type: string
                   format: binary
       responses:
-        '200':
+        "200":
           description: Logo erfolgreich hochgeladen
+  /admin/settings/background:
+    post:
+      summary: Lädt das Desktop-Hintergrundbild hoch
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                background:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Hintergrundbild erfolgreich hochgeladen
+  /admin/settings/background-mobile:
+    post:
+      summary: Lädt das mobile Hintergrundbild hoch
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                background_mobile:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Mobiles Hintergrundbild erfolgreich hochgeladen
   /admin/documents:
     post:
       summary: Lädt ein PDF-Dokument hoch
@@ -245,5 +387,5 @@ paths:
                   type: string
                   format: binary
       responses:
-        '200':
+        "200":
           description: Dokument erfolgreich hochgeladen

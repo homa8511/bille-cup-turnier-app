@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response, Router } from "express";
 import * as jwt from "jsonwebtoken";
 import multer from "multer";
-import { ZodSchema } from "zod";
+import { ZodTypeAny } from "zod";
 import { TournamentController } from "./presentation/controllers/TournamentController";
 import {
   initTournamentSchema,
@@ -16,7 +16,7 @@ const tournamentController = new TournamentController();
 const JWT_SECRET = process.env.JWT_SECRET || "turniergeheimnis2026";
 
 const validatePayload =
-  (schema: ZodSchema) =>
+  (schema: ZodTypeAny) =>
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       await schema.parseAsync({
@@ -106,23 +106,27 @@ router.post(
   validatePayload(loginSchema),
   (req: Request, res: Response) => tournamentController.loginAdmin(req, res),
 );
+
 router.get("/teams", (req: Request, res: Response) =>
   tournamentController.getTeams(req, res),
 );
+
 router.get("/groups", (req: Request, res: Response) =>
   tournamentController.getGroups(req, res),
 );
+
 router.get("/matches", (req: Request, res: Response) =>
   tournamentController.getMatches(req, res),
 );
+
 router.get("/settings", (req: Request, res: Response) =>
   tournamentController.getSettings(req, res),
 );
+
 router.get("/pages/:slug", (req: Request, res: Response) =>
   tournamentController.getPageContent(req, res),
 );
 
-// Dieser neue Endpunkt nimmt den umfangreichen Initialisierungs-Payload entgegen.
 router.post(
   "/admin/initialize",
   authenticateToken,
@@ -138,6 +142,7 @@ router.put(
   (req: Request, res: Response) =>
     tournamentController.updateSettings(req, res),
 );
+
 router.put(
   "/admin/pages/:slug",
   authenticateToken,
@@ -145,12 +150,14 @@ router.put(
   (req: Request, res: Response) =>
     tournamentController.updatePageContent(req, res),
 );
+
 router.post(
   "/admin/settings/logo",
   authenticateToken,
   uploadImage.single("logo"),
   (req: Request, res: Response) => tournamentController.uploadLogo(req, res),
 );
+
 router.post(
   "/admin/settings/background",
   authenticateToken,
@@ -158,6 +165,7 @@ router.post(
   (req: Request, res: Response) =>
     tournamentController.uploadBackground(req, res),
 );
+
 router.post(
   "/admin/settings/background-mobile",
   authenticateToken,
@@ -165,6 +173,7 @@ router.post(
   (req: Request, res: Response) =>
     tournamentController.uploadBackgroundMobile(req, res),
 );
+
 router.post(
   "/admin/documents",
   authenticateToken,
@@ -172,6 +181,7 @@ router.post(
   (req: Request, res: Response) =>
     tournamentController.uploadDocument(req, res),
 );
+
 router.post(
   "/admin/matches/:id/result",
   authenticateToken,
@@ -179,6 +189,7 @@ router.post(
   (req: Request, res: Response) =>
     tournamentController.updateMatchResult(req, res),
 );
+
 router.post(
   "/admin/groups/:groupId/generate-swiss",
   authenticateToken,

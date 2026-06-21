@@ -305,11 +305,9 @@ export class TournamentController {
       const publicUrl = `/public/documents/uploads/${filename}`;
       res.json({ message: "Dokument erfolgreich hochgeladen", url: publicUrl });
     } catch (error: any) {
-      res
-        .status(500)
-        .json({
-          error: `Fehler beim Speichern des Dokuments: ${error.message}`,
-        });
+      res.status(500).json({
+        error: `Fehler beim Speichern des Dokuments: ${error.message}`,
+      });
     }
   }
 
