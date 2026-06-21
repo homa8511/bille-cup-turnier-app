@@ -10,7 +10,6 @@ import {
 
 // Diese Klasse bündelt alle domänenspezifischen Geschäftsregeln des Turniers in reinen Funktionen.
 export class TournamentService {
-  // Diese Methode berechnet die aktuelle Gruppentabelle anhand der beendeten Spiele.
   public calculateStandings(
     teams: { id: string }[],
     completedMatches: Match[],
@@ -61,7 +60,6 @@ export class TournamentService {
     return standingsArray.map((stat) => stat.extractSnapshot());
   }
 
-  // Diese Methode aggregiert die Gruppentabellen zu einer Gesamttabelle für die Finalrunde.
   public calculateCombinedStandings(
     allPhaseStandings: any[],
     allMatches: Match[],
@@ -122,7 +120,6 @@ export class TournamentService {
     }));
   }
 
-  // Diese Methode teilt das Feld anhand der Gesamttabelle in Gold und Silber auf.
   public splitIntoGoldAndSilver(
     combinedStandings: CombinedStanding[],
   ): FinalGroupsAllocation {
@@ -132,7 +129,6 @@ export class TournamentService {
     };
   }
 
-  // Diese Methode generiert die anfängliche Setzliste nach dem Schlangensystem.
   public distributeSnakeSeeding(
     vorrundenStandings: CombinedStanding[],
     vorrundenMatchHistory: Record<string, string[]>,
@@ -191,7 +187,6 @@ export class TournamentService {
     return seeding;
   }
 
-  // Diese Backtracking-Methode berechnet die exakten Schweizer-System-Paarungen.
   public calculateSwissPairings(
     currentStandings: any[],
     completeMatchHistory: Record<string, string[]>,
@@ -252,20 +247,38 @@ export class TournamentService {
     return optimalPairings || [];
   }
 
-  // Diese Methode generiert alle Paarungen für die Jeder-gegen-Jeden-Gruppen.
+  // ACHTUNG FIX B: Dieser Algorithmus verschränkt die Paarungen (Round-Robin-Polygon) zur Vermeidung direkter Doppelspiele.
   public generateRoundRobinPairings(
     teamIds: string[],
   ): { home: string; away: string }[] {
     const pairings: { home: string; away: string }[] = [];
-    for (let i = 0; i < teamIds.length; i++) {
-      for (let j = i + 1; j < teamIds.length; j++) {
-        pairings.push({ home: teamIds[i], away: teamIds[j] });
+    const n = teamIds.length;
+    if (n === 0) return pairings;
+
+    const teams = n % 2 !== 0 ? [...teamIds, null] : [...teamIds];
+    const numTeams = teams.length;
+    const rounds = numTeams - 1;
+    const half = numTeams / 2;
+
+    let currentTeams = [...teams];
+    for (let round = 0; round < rounds; round++) {
+      for (let i = 0; i < half; i++) {
+        const home = currentTeams[i];
+        const away = currentTeams[numTeams - 1 - i];
+        if (home !== null && away !== null) {
+          pairings.push({ home, away });
+        }
       }
+      // Teams im Polygon rotieren (Team 0 bleibt fixiert).
+      currentTeams = [
+        currentTeams[0],
+        currentTeams[numTeams - 1],
+        ...currentTeams.slice(1, numTeams - 1),
+      ];
     }
     return pairings;
   }
 
-  // Diese Methode plant die genauen Anstoßzeiten für eine Reihe von Spielen ein.
   public calculateSchedule(
     phaseMatches: Match[],
     startTimeIso: string,
@@ -308,7 +321,6 @@ export class TournamentService {
     return scheduleUpdates;
   }
 
-  // Diese Methode plant die Zeiten für genau eine Spielrunde (6 Felder parallel) der Finalrunde.
   public scheduleSingleFinalRound(
     roundMatches: Match[],
     startTimeIso: string,
@@ -329,7 +341,6 @@ export class TournamentService {
     return scheduleUpdates;
   }
 
-  // Diese Methode prüft, ob eine Finalgruppe bereits ihre maximalen sechs Runden erreicht hat.
   public isFinalGroupComplete(matchesInGroup: Match[]): boolean {
     const playedMatches = matchesInGroup.filter(
       (m) => m.extractSnapshot().status === "BEENDET",
@@ -337,7 +348,6 @@ export class TournamentService {
     return playedMatches.length >= 36;
   }
 
-  // Diese Methode prüft, ob alle Spiele der aktuellen Runde einer Gruppe abgeschlossen sind.
   public isCurrentRoundComplete(matchesInGroup: Match[]): boolean {
     const pendingMatches = matchesInGroup.filter(
       (m) => m.extractSnapshot().status !== "BEENDET",

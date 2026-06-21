@@ -152,6 +152,14 @@ router.put(
 );
 
 router.post(
+  "/admin/teams/:id/logo",
+  authenticateToken,
+  uploadImage.single("logo"),
+  (req: Request, res: Response) =>
+    tournamentController.uploadTeamLogo(req, res),
+);
+
+router.post(
   "/admin/settings/logo",
   authenticateToken,
   uploadImage.single("logo"),

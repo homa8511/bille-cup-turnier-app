@@ -3,6 +3,7 @@ import {
   ChevronUp,
   Edit,
   FileSpreadsheet,
+  Image as ImageIcon,
   LayoutGrid,
   List,
   LogIn,
@@ -107,6 +108,7 @@ export function useTournamentData() {
             "STANDINGS_UPDATED",
             "SCHEDULE_UPDATED",
             "TOURNAMENT_INITIALIZED",
+            "TEAM_UPDATED",
           ].includes(data.type)
         ) {
           fetchAllData();
@@ -122,6 +124,32 @@ export function useTournamentData() {
 }
 
 // --- Components ---
+export function TeamLogo({
+  team,
+  size = "w-8 h-8",
+}: {
+  team?: Team;
+  size?: string;
+}) {
+  if (!team || !team.logo_path)
+    return (
+      <div
+        className={`${size} rounded-full bg-slate-200 dark:bg-slate-700 shrink-0`}
+      />
+    );
+  return (
+    <div
+      className={`${size} flex items-center justify-center bg-white rounded-full border border-gray-200 dark:border-slate-600 shadow-sm shrink-0 overflow-hidden`}
+    >
+      <img
+        src={team.logo_path}
+        alt={team.name}
+        className="w-[90%] h-[90%] object-contain"
+      />
+    </div>
+  );
+}
+
 export function Modal({
   isOpen,
   onClose,
@@ -231,8 +259,14 @@ export function MatchCard({
   onUpdateResult: (id: string, h: number, a: number) => void;
 }) {
   const [editMode, setEditMode] = useState(false);
-  const [hScore, setHScore] = useState<number | "">(match.goals_home ?? "");
-  const [aScore, setAScore] = useState<number | "">(match.goals_away ?? "");
+  const [hScore, setHScore] = useState<number | "">("");
+  const [aScore, setAScore] = useState<number | "">("");
+
+  const startEditing = () => {
+    setHScore(match.goals_home ?? 0);
+    setAScore(match.goals_away ?? 0);
+    setEditMode(true);
+  };
 
   const handleSave = () => {
     if (typeof hScore === "number" && typeof aScore === "number") {
@@ -262,7 +296,7 @@ export function MatchCard({
           })}
         </span>
       </div>
-      <div className="flex justify-between items-center gap-2">
+      <div className="flex justify-between items-center gap-2 z-10 relative">
         <span className="flex-1 text-right font-semibold text-slate-800 dark:text-slate-200 truncate pr-2">
           {homeName}
         </span>
@@ -292,7 +326,7 @@ export function MatchCard({
           ) : isFinished ? (
             `${match.goals_home} : ${match.goals_away}`
           ) : isLive ? (
-            "LIVE"
+            <span className="text-green-600 animate-pulse">0 : 0</span>
           ) : (
             "- : -"
           )}
@@ -302,7 +336,7 @@ export function MatchCard({
         </span>
       </div>
       {isAdmin && (
-        <div className="mt-2 pt-3 border-t border-gray-100 dark:border-slate-700 flex justify-center">
+        <div className="mt-2 pt-3 border-t border-gray-100 dark:border-slate-700 flex justify-center z-10 relative">
           {editMode ? (
             <div className="flex gap-2 w-full">
               <button
@@ -320,7 +354,7 @@ export function MatchCard({
             </div>
           ) : (
             <button
-              onClick={() => setEditMode(true)}
+              onClick={startEditing}
               className="w-full text-xs font-semibold bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 py-1.5 rounded transition"
             >
               Ergebnis eintragen
@@ -329,13 +363,155 @@ export function MatchCard({
         </div>
       )}
       {isLive && !isAdmin && (
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-20 pointer-events-none">
-          <span className="font-bold text-green-500 text-3xl tracking-widest animate-pulse">
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-20 pointer-events-none z-0">
+          <span className="font-bold text-green-500 text-4xl tracking-widest animate-pulse">
             LIVE
           </span>
         </div>
       )}
     </div>
+  );
+}
+
+export function MatchTableRow({
+  match,
+  group,
+  homeTeam,
+  awayTeam,
+  isAdmin,
+  onUpdateResult,
+  selectedTeam,
+}: any) {
+  const [editMode, setEditMode] = useState(false);
+  const [hScore, setHScore] = useState<number | "">("");
+  const [aScore, setAScore] = useState<number | "">("");
+
+  const startEditing = () => {
+    setHScore(match.goals_home ?? 0);
+    setAScore(match.goals_away ?? 0);
+    setEditMode(true);
+  };
+
+  const handleSave = () => {
+    if (typeof hScore === "number" && typeof aScore === "number") {
+      onUpdateResult(match.id, hScore, aScore);
+      setEditMode(false);
+    }
+  };
+
+  const isLive = match.status === "LIVE";
+  const isFinished = match.status === "BEENDET";
+
+  const homeName = homeTeam?.name || match.home_placeholder || "Unbekannt";
+  const awayName = awayTeam?.name || match.away_placeholder || "Unbekannt";
+
+  let rowClasses =
+    "transition-colors border-b last:border-0 dark:border-slate-700 ";
+  if (isLive) rowClasses += "bg-green-50/30 dark:bg-green-900/10";
+  else rowClasses += "hover:bg-slate-50 dark:hover:bg-slate-700/50";
+
+  const formatTime = (iso: string) => {
+    if (!iso) return "--:--";
+    return new Date(iso).toLocaleTimeString("de-DE", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  return (
+    <tr className={rowClasses}>
+      <td className="px-3 py-3 text-center font-semibold text-slate-700 dark:text-slate-300">
+        {match.match_number}
+      </td>
+      <td className="px-2 py-3 text-center font-medium text-slate-600 dark:text-slate-400">
+        {group?.field_numbers?.[0] || "-"}
+      </td>
+      <td className="px-3 py-3 text-center font-medium text-slate-600 dark:text-slate-400">
+        {formatTime(match.start_time)}
+      </td>
+      <td className="px-2 py-3 text-center font-bold text-slate-700 dark:text-slate-300">
+        {group?.name?.split(" ").pop()}
+      </td>
+
+      <td className="px-2 py-2 w-10 text-right">
+        <div className="flex justify-end">
+          <TeamLogo team={homeTeam} size="w-7 h-7" />
+        </div>
+      </td>
+      <td
+        className={`px-2 py-3 text-right font-semibold w-[35%] ${match.home_team_id === selectedTeam ? "text-blue-600 dark:text-blue-400" : "text-slate-700 dark:text-slate-200"}`}
+      >
+        {homeName}
+      </td>
+      <td
+        className={`px-2 py-3 text-left font-semibold w-[35%] ${match.away_team_id === selectedTeam ? "text-blue-600 dark:text-blue-400" : "text-slate-700 dark:text-slate-200"}`}
+      >
+        {awayName}
+      </td>
+      <td className="px-2 py-2 w-10 text-left">
+        <div className="flex justify-start">
+          <TeamLogo team={awayTeam} size="w-7 h-7" />
+        </div>
+      </td>
+
+      <td className="px-4 py-3 text-center font-bold whitespace-nowrap text-slate-800 dark:text-slate-100 min-w-[120px]">
+        {editMode ? (
+          <div className="flex items-center justify-center gap-1">
+            <input
+              type="number"
+              min="0"
+              value={hScore}
+              onChange={(e) =>
+                setHScore(e.target.value === "" ? "" : Number(e.target.value))
+              }
+              className="w-10 text-center border rounded dark:bg-slate-900 dark:border-slate-600"
+            />
+            <span>:</span>
+            <input
+              type="number"
+              min="0"
+              value={aScore}
+              onChange={(e) =>
+                setAScore(e.target.value === "" ? "" : Number(e.target.value))
+              }
+              className="w-10 text-center border rounded dark:bg-slate-900 dark:border-slate-600"
+            />
+            <button
+              onClick={handleSave}
+              className="ml-2 bg-green-600 text-white p-1 rounded hover:bg-green-700"
+            >
+              <Save className="w-3 h-3" />
+            </button>
+            <button
+              onClick={() => setEditMode(false)}
+              className="ml-1 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 p-1 rounded hover:bg-slate-300"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center gap-2">
+            <span>
+              {isFinished ? (
+                `${match.goals_home} : ${match.goals_away}`
+              ) : isLive ? (
+                <span className="text-green-600 animate-pulse">0 : 0</span>
+              ) : (
+                "- : -"
+              )}
+            </span>
+            {isAdmin && (isLive || isFinished) && (
+              <button
+                onClick={startEditing}
+                className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 p-1 rounded transition"
+              >
+                <Edit className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+        )}
+      </td>
+    </tr>
   );
 }
 
@@ -403,6 +579,8 @@ const translations: Record<Language, Record<string, string>> = {
     csvFormatHint: "Format: Team-Name;Gruppe (z.B. HSV I;Gruppe B)",
     csvSuccess: "CSV erfolgreich geladen",
     discardCsv: "CSV verwerfen",
+    editTeams: "Teams & Logos bearbeiten",
+    uploadTeamLogo: "Neues Wappen",
   },
   en: {
     title: "U10 Bille Cup 2026",
@@ -464,6 +642,8 @@ const translations: Record<Language, Record<string, string>> = {
     csvFormatHint: "Format: Team Name;Group (e.g. HSV I;Group B)",
     csvSuccess: "CSV loaded successfully",
     discardCsv: "Discard CSV",
+    editTeams: "Edit Teams & Logos",
+    uploadTeamLogo: "New Crest",
   },
 };
 
@@ -624,6 +804,28 @@ export default function App() {
       else alert("Fehler beim Speichern der Einstellungen.");
     } catch {
       alert("Netzwerkfehler");
+    }
+  };
+
+  const handleTeamLogoUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    teamId: string,
+  ) => {
+    if (!adminToken || !e.target.files?.[0]) return;
+    const formData = new FormData();
+    formData.append("logo", e.target.files[0]);
+    try {
+      const res = await fetch(`/api/admin/teams/${teamId}/logo`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${adminToken}` },
+        body: formData,
+      });
+      if (res.ok) {
+        alert("Wappen erfolgreich hochgeladen!");
+        refetch();
+      } else alert("Fehler beim Upload");
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -871,17 +1073,6 @@ export default function App() {
     setIsSeedingModalOpen(false);
   };
 
-  const getTeamName = (
-    teamId: string | null,
-    isHome: boolean,
-    matchNumber: number,
-  ) => {
-    if (!teamId)
-      return `${isHome ? t.placeholderHome : t.placeholderAway} (${matchNumber})`;
-    const team = teams.find((t) => t.id === teamId);
-    return team ? team.name : t.unknown;
-  };
-
   const filteredGroups = groups.filter((g) => {
     if (g.phase !== activeTab) return false;
     if (!selectedTeam) return true;
@@ -894,41 +1085,6 @@ export default function App() {
       )
     );
   });
-
-  const TeamLogo = ({
-    teamId,
-    size = "w-8 h-8",
-  }: {
-    teamId: string | null;
-    size?: string;
-  }) => {
-    const team = teams.find((t) => t.id === teamId);
-    if (!team || !team.logo_path)
-      return (
-        <div
-          className={`${size} rounded-full bg-slate-200 dark:bg-slate-700 shrink-0`}
-        />
-      );
-    return (
-      <div
-        className={`${size} flex items-center justify-center bg-white rounded-full border shadow-sm shrink-0 overflow-hidden`}
-      >
-        <img
-          src={team.logo_path}
-          alt={team.name}
-          className="w-[90%] h-[90%] object-contain"
-        />
-      </div>
-    );
-  };
-
-  const formatTime = (isoString: string) => {
-    if (!isoString) return "--:--";
-    return new Date(isoString).toLocaleTimeString("de-DE", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
 
   if (isLoading && teams.length === 0) {
     return (
@@ -1108,6 +1264,42 @@ export default function App() {
                     <Save className="w-4 h-4" /> {t.save}
                   </button>
                 </section>
+                <hr className="border-gray-200 dark:border-slate-700" />
+
+                <section>
+                  <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 text-indigo-600">
+                    <ImageIcon className="w-6 h-6" />
+                    {t.editTeams}
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto p-2 bg-slate-50 dark:bg-slate-900/50 rounded-xl">
+                    {teams.map((team) => (
+                      <div
+                        key={team.id}
+                        className="p-4 border rounded-xl flex items-center gap-4 bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 shadow-sm"
+                      >
+                        <TeamLogo team={team} size="w-12 h-12" />
+                        <div className="flex-1 overflow-hidden">
+                          <p
+                            className="font-bold text-sm truncate"
+                            title={team.name}
+                          >
+                            {team.name}
+                          </p>
+                          <label className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 cursor-pointer flex items-center gap-1 mt-1 transition">
+                            <Upload className="w-3 h-3" /> {t.uploadTeamLogo}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => handleTeamLogoUpload(e, team.id)}
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
                 <hr className="border-gray-200 dark:border-slate-700" />
                 <section>
                   <h2 className="text-2xl font-bold mb-2 flex items-center gap-2 text-red-600">
@@ -1360,8 +1552,14 @@ export default function App() {
                                       <th className="px-3 py-3 text-center w-10">
                                         {t.nr}
                                       </th>
+                                      <th className="px-2 py-3 text-center w-10">
+                                        {t.f}
+                                      </th>
                                       <th className="px-3 py-3 text-center w-20">
                                         {t.beginn}
+                                      </th>
+                                      <th className="px-2 py-3 text-center w-10">
+                                        {t.gr}
                                       </th>
                                       <th
                                         className="px-4 py-3 text-center"
@@ -1376,54 +1574,20 @@ export default function App() {
                                   </thead>
                                   <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
                                     {groupMatches.map((match) => (
-                                      <tr
+                                      <MatchTableRow
                                         key={match.id}
-                                        className={`hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${match.status === "LIVE" ? "bg-green-50/30" : ""}`}
-                                      >
-                                        <td className="px-3 py-3 text-center font-semibold text-slate-700 dark:text-slate-300">
-                                          {match.match_number}
-                                        </td>
-                                        <td className="px-3 py-3 text-center font-medium text-slate-600 dark:text-slate-400">
-                                          {formatTime(match.start_time)}
-                                        </td>
-                                        <td className="px-2 py-2 w-10 text-right">
-                                          <TeamLogo
-                                            teamId={match.home_team_id}
-                                            size="w-7 h-7"
-                                          />
-                                        </td>
-                                        <td className="px-2 py-3 text-right font-semibold w-[35%]">
-                                          {getTeamName(
-                                            match.home_team_id,
-                                            true,
-                                            match.match_number,
-                                          )}
-                                        </td>
-                                        <td className="px-2 py-3 text-left font-semibold w-[35%]">
-                                          {getTeamName(
-                                            match.away_team_id,
-                                            false,
-                                            match.match_number,
-                                          )}
-                                        </td>
-                                        <td className="px-2 py-2 w-10 text-left">
-                                          <TeamLogo
-                                            teamId={match.away_team_id}
-                                            size="w-7 h-7"
-                                          />
-                                        </td>
-                                        <td className="px-4 py-3 text-center font-bold text-slate-800 dark:text-slate-100">
-                                          {match.status === "BEENDET" ? (
-                                            `${match.goals_home} : ${match.goals_away}`
-                                          ) : match.status === "LIVE" ? (
-                                            <span className="text-green-600 animate-pulse">
-                                              LIVE
-                                            </span>
-                                          ) : (
-                                            "- : -"
-                                          )}
-                                        </td>
-                                      </tr>
+                                        match={match}
+                                        group={group}
+                                        homeTeam={teams.find(
+                                          (t) => t.id === match.home_team_id,
+                                        )}
+                                        awayTeam={teams.find(
+                                          (t) => t.id === match.away_team_id,
+                                        )}
+                                        isAdmin={!!adminToken}
+                                        onUpdateResult={handleUpdateResult}
+                                        selectedTeam={selectedTeam}
+                                      />
                                     ))}
                                   </tbody>
                                 </table>
@@ -1469,36 +1633,42 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
-                      {seedingData.map((item) => (
-                        <tr
-                          key={item.team_id}
-                          className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
-                        >
-                          <td className="px-4 py-3 text-center font-bold text-slate-700 dark:text-slate-300">
-                            {item.vorrunden_platz}
-                          </td>
-                          <td className="px-4 py-3 flex items-center gap-3 font-medium text-slate-800 dark:text-slate-200">
-                            <TeamLogo teamId={item.team_id} size="w-8 h-8" />
-                            {getTeamName(item.team_id, true, 0)}
-                          </td>
-                          <td className="px-4 py-3">
-                            <select
-                              value={item.assigned_group}
-                              onChange={(e) =>
-                                updateSeedingGroup(item.team_id, e.target.value)
-                              }
-                              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-semibold transition-all cursor-pointer"
-                            >
-                              <option value="Gruppe G">Gruppe G</option>
-                              <option value="Gruppe H">Gruppe H</option>
-                              <option value="Gruppe I">Gruppe I</option>
-                              <option value="Gruppe J">Gruppe J</option>
-                              <option value="Gruppe K">Gruppe K</option>
-                              <option value="Gruppe L">Gruppe L</option>
-                            </select>
-                          </td>
-                        </tr>
-                      ))}
+                      {seedingData.map((item) => {
+                        const team = teams.find((t) => t.id === item.team_id);
+                        return (
+                          <tr
+                            key={item.team_id}
+                            className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+                          >
+                            <td className="px-4 py-3 text-center font-bold text-slate-700 dark:text-slate-300">
+                              {item.vorrunden_platz}
+                            </td>
+                            <td className="px-4 py-3 flex items-center gap-3 font-medium text-slate-800 dark:text-slate-200">
+                              <TeamLogo team={team} size="w-8 h-8" />
+                              {team?.name || "Unbekannt"}
+                            </td>
+                            <td className="px-4 py-3">
+                              <select
+                                value={item.assigned_group}
+                                onChange={(e) =>
+                                  updateSeedingGroup(
+                                    item.team_id,
+                                    e.target.value,
+                                  )
+                                }
+                                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-semibold transition-all cursor-pointer"
+                              >
+                                <option value="Gruppe G">Gruppe G</option>
+                                <option value="Gruppe H">Gruppe H</option>
+                                <option value="Gruppe I">Gruppe I</option>
+                                <option value="Gruppe J">Gruppe J</option>
+                                <option value="Gruppe K">Gruppe K</option>
+                                <option value="Gruppe L">Gruppe L</option>
+                              </select>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

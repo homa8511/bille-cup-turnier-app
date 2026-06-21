@@ -61,7 +61,6 @@ export class TournamentController {
     }
   }
 
-  // Diese Methode empfängt das große Datenpaket aus dem Frontend zur Initialisierung.
   public async initializeTournament(
     req: Request,
     res: Response,
@@ -79,13 +78,16 @@ export class TournamentController {
 
   public async getTeams(req: Request, res: Response): Promise<void> {
     try {
-      const result = await this.db.query("SELECT * FROM teams");
+      const result = await this.db.query(
+        "SELECT * FROM teams ORDER BY name ASC",
+      );
       res.json(result.rows);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   }
 
+  // ACHTUNG FIX A: Die SQL Abfrage sortiert die Gruppen nun garantiert alphabetisch.
   public async getGroups(req: Request, res: Response): Promise<void> {
     try {
       const query = `
@@ -102,6 +104,7 @@ export class TournamentController {
                 FROM groups g
                 LEFT JOIN group_teams gt ON g.id = gt.group_id
                 GROUP BY g.id
+                ORDER BY g.name ASC
             `;
       const result = await this.db.query(query);
       res.json(result.rows);
@@ -174,6 +177,45 @@ export class TournamentController {
       res.json({ message: "Einstellungen erfolgreich aktualisiert" });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
+    }
+  }
+
+  // ACHTUNG FIX C: Diese völlig neue Methode ermöglicht den individuellen Bildupload für Teams.
+  public async uploadTeamLogo(req: Request, res: Response): Promise<void> {
+    const teamId = req.params.id;
+    if (!req.file) {
+      res.status(400).json({ message: "Keine Datei hochgeladen" });
+      return;
+    }
+
+    try {
+      const filename = `team-${teamId}-${Date.now()}.webp`;
+      const outputPath = path.join(
+        __dirname,
+        "../../../public/images/uploads",
+        filename,
+      );
+
+      await sharp(req.file.buffer)
+        .resize({ height: 120, withoutEnlargement: true })
+        .webp({ quality: 90 })
+        .toFile(outputPath);
+
+      const publicUrl = `/public/images/uploads/${filename}`;
+      await this.db.query("UPDATE teams SET logo_path = $1 WHERE id = $2", [
+        publicUrl,
+        teamId,
+      ]);
+
+      this.broadcastUpdate({ type: "TEAM_UPDATED" });
+      res.json({
+        message: "Team-Logo erfolgreich hochgeladen",
+        url: publicUrl,
+      });
+    } catch (error: any) {
+      res
+        .status(500)
+        .json({ error: `Fehler bei der Bildverarbeitung: ${error.message}` });
     }
   }
 
@@ -305,9 +347,11 @@ export class TournamentController {
       const publicUrl = `/public/documents/uploads/${filename}`;
       res.json({ message: "Dokument erfolgreich hochgeladen", url: publicUrl });
     } catch (error: any) {
-      res.status(500).json({
-        error: `Fehler beim Speichern des Dokuments: ${error.message}`,
-      });
+      res
+        .status(500)
+        .json({
+          error: `Fehler beim Speichern des Dokuments: ${error.message}`,
+        });
     }
   }
 
