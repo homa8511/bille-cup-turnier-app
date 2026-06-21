@@ -76,3 +76,17 @@ export const initTournamentSchema = z.object({
       .min(1),
   }),
 });
+
+// Dieses Schema validiert die eingehende Setzliste für den Start der Zwischenrunde.
+export const approveSeedingSchema = z.object({
+  body: z.object({
+    startTimeIso: z.string().datetime(),
+    seeding: z.array(
+      z.object({
+        team_id: z.string().uuid(),
+        original_rank: z.number(),
+        assigned_group: z.string(),
+      }),
+    ),
+  }),
+});

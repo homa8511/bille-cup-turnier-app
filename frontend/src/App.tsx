@@ -4,6 +4,7 @@ import {
   Edit,
   FileSpreadsheet,
   Image as ImageIcon,
+  Info,
   LayoutGrid,
   List,
   LogIn,
@@ -222,7 +223,10 @@ export function GroupTable({
                 <td
                   className={`px-4 py-3 font-semibold ${isSelected ? "text-blue-700 dark:text-blue-400" : "text-slate-800 dark:text-slate-200"}`}
                 >
-                  {team?.name || "Unbekannt"}
+                  <div className="flex items-center gap-2">
+                    <TeamLogo team={team} size="w-5 h-5" />
+                    {team?.name || "Unbekannt"}
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-center text-slate-600 dark:text-slate-400">
                   {s.matches_played ?? 0}
@@ -259,12 +263,12 @@ export function MatchCard({
   onUpdateResult: (id: string, h: number, a: number) => void;
 }) {
   const [editMode, setEditMode] = useState(false);
-  const [hScore, setHScore] = useState<number | "">("");
-  const [aScore, setAScore] = useState<number | "">("");
+  const [hScore, setHScore] = useState<number | "">(match.goals_home ?? "");
+  const [aScore, setAScore] = useState<number | "">(match.goals_away ?? "");
 
   const startEditing = () => {
-    setHScore(match.goals_home ?? 0);
-    setAScore(match.goals_away ?? 0);
+    setHScore(match.goals_home !== null ? match.goals_home : 0);
+    setAScore(match.goals_away !== null ? match.goals_away : 0);
     setEditMode(true);
   };
 
@@ -309,7 +313,7 @@ export function MatchCard({
                 className="w-6 text-center bg-transparent border-b border-blue-400 focus:outline-none appearance-none"
                 value={hScore}
                 onChange={(e) =>
-                  setHScore(e.target.value === "" ? "" : Number(e.target.value))
+                  setHScore(e.target.value === "" ? 0 : Number(e.target.value))
                 }
               />
               <span>:</span>
@@ -319,7 +323,7 @@ export function MatchCard({
                 className="w-6 text-center bg-transparent border-b border-blue-400 focus:outline-none appearance-none"
                 value={aScore}
                 onChange={(e) =>
-                  setAScore(e.target.value === "" ? "" : Number(e.target.value))
+                  setAScore(e.target.value === "" ? 0 : Number(e.target.value))
                 }
               />
             </div>
@@ -383,12 +387,12 @@ export function MatchTableRow({
   selectedTeam,
 }: any) {
   const [editMode, setEditMode] = useState(false);
-  const [hScore, setHScore] = useState<number | "">("");
-  const [aScore, setAScore] = useState<number | "">("");
+  const [hScore, setHScore] = useState<number | "">(match.goals_home ?? "");
+  const [aScore, setAScore] = useState<number | "">(match.goals_away ?? "");
 
   const startEditing = () => {
-    setHScore(match.goals_home ?? 0);
-    setAScore(match.goals_away ?? 0);
+    setHScore(match.goals_home !== null ? match.goals_home : 0);
+    setAScore(match.goals_away !== null ? match.goals_away : 0);
     setEditMode(true);
   };
 
@@ -462,7 +466,7 @@ export function MatchTableRow({
               min="0"
               value={hScore}
               onChange={(e) =>
-                setHScore(e.target.value === "" ? "" : Number(e.target.value))
+                setHScore(e.target.value === "" ? 0 : Number(e.target.value))
               }
               className="w-10 text-center border rounded dark:bg-slate-900 dark:border-slate-600"
             />
@@ -472,7 +476,7 @@ export function MatchTableRow({
               min="0"
               value={aScore}
               onChange={(e) =>
-                setAScore(e.target.value === "" ? "" : Number(e.target.value))
+                setAScore(e.target.value === "" ? 0 : Number(e.target.value))
               }
               className="w-10 text-center border rounded dark:bg-slate-900 dark:border-slate-600"
             />
@@ -562,8 +566,8 @@ const translations: Record<Language, Record<string, string>> = {
     remove: "Entfernen",
     viewCards: "Kartenansicht",
     viewTable: "Tabellenansicht",
-    editSeeding: "Setzliste bearbeiten",
-    seedingTitle: "Setzliste Zwischenrunde (Snake-System)",
+    editSeeding: "Setzliste prüfen & freigeben",
+    seedingTitle: "Setzliste Zwischenrunde",
     vorrundenPlatz: "VR-Platz",
     zugewieseneGruppe: "Zugewiesene Gruppe",
     adminArea: "Admin-Bereich",
@@ -581,6 +585,7 @@ const translations: Record<Language, Record<string, string>> = {
     discardCsv: "CSV verwerfen",
     editTeams: "Teams & Logos bearbeiten",
     uploadTeamLogo: "Neues Wappen",
+    startFinalRound: "Finalrunde starten",
   },
   en: {
     title: "U10 Bille Cup 2026",
@@ -625,8 +630,8 @@ const translations: Record<Language, Record<string, string>> = {
     remove: "Remove",
     viewCards: "Card View",
     viewTable: "Table View",
-    editSeeding: "Edit Seeding List",
-    seedingTitle: "Intermediate Seeding (Snake System)",
+    editSeeding: "Verify Seeding List",
+    seedingTitle: "Intermediate Seeding",
     vorrundenPlatz: "Prelim Rank",
     zugewieseneGruppe: "Assigned Group",
     adminArea: "Admin Area",
@@ -644,6 +649,7 @@ const translations: Record<Language, Record<string, string>> = {
     discardCsv: "Discard CSV",
     editTeams: "Edit Teams & Logos",
     uploadTeamLogo: "New Crest",
+    startFinalRound: "Start Finals",
   },
 };
 
@@ -704,6 +710,7 @@ export default function App() {
   const [sponsors, setSponsors] = useState<string[]>([
     "https://placehold.co/300x150/ffffff/000000?text=Sponsor+1",
   ]);
+
   const [isSeedingModalOpen, setIsSeedingModalOpen] = useState(false);
   const [seedingData, setSeedingData] = useState<any[]>([]);
 
@@ -1061,6 +1068,77 @@ export default function App() {
     setSponsors((prev) => prev.filter((_, index) => index !== indexToRemove));
   };
 
+  const handleOpenSeedingModal = async () => {
+    if (!adminToken) return;
+    try {
+      const res = await fetch("/api/admin/preview-snake", {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSeedingData(data);
+        setIsSeedingModalOpen(true);
+      } else {
+        alert(
+          "Fehler beim Laden der Setzliste. Sind alle Vorrunden-Spiele absolviert?",
+        );
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const saveSeedingData = async () => {
+    if (!adminToken) return;
+    try {
+      const res = await fetch("/api/admin/approve-seeding", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({
+          seeding: seedingData,
+          startTimeIso: new Date(adminZwischenrundeStart).toISOString(),
+        }),
+      });
+      if (res.ok) {
+        alert("Zwischenrunde erfolgreich generiert!");
+        setIsSeedingModalOpen(false);
+        refetch();
+      } else {
+        alert("Fehler beim Speichern der Setzliste.");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleStartFinalRound = async () => {
+    if (!adminToken) return;
+    if (!confirm("Finalrunde jetzt berechnen und starten?")) return;
+    try {
+      const res = await fetch("/api/admin/start-finalround", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({
+          startTimeIso: new Date(adminFinalrundeStart).toISOString(),
+        }),
+      });
+      if (res.ok) {
+        alert("Finalrunde erfolgreich gestartet!");
+        refetch();
+      } else {
+        alert("Fehler beim Starten der Finalrunde.");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const updateSeedingGroup = (teamId: string, newGroup: string) => {
     setSeedingData((prev) =>
       prev.map((item) =>
@@ -1069,11 +1147,8 @@ export default function App() {
     );
   };
 
-  const saveSeedingData = () => {
-    setIsSeedingModalOpen(false);
-  };
-
-  const filteredGroups = groups.filter((g) => {
+  const sortedGroups = [...groups].sort((a, b) => a.name.localeCompare(b.name));
+  const filteredGroups = sortedGroups.filter((g) => {
     if (g.phase !== activeTab) return false;
     if (!selectedTeam) return true;
     return (
@@ -1096,6 +1171,13 @@ export default function App() {
       </div>
     );
   }
+
+  const pools = [
+    "Topf 1 (1. Plätze)",
+    "Topf 2 (2. Plätze)",
+    "Topf 3 (3. Plätze)",
+    "Topf 4 (4. Plätze)",
+  ];
 
   return (
     <div className={theme === "dark" ? "dark" : ""}>
@@ -1184,19 +1266,41 @@ export default function App() {
                   ))}
                 </select>
               </div>
-              <div className="flex bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden">
-                <button
-                  onClick={() => setViewMode("table")}
-                  className={`p-3 transition-colors ${viewMode === "table" ? "bg-blue-100 dark:bg-blue-900 text-blue-700" : "text-slate-500 hover:bg-slate-50"}`}
-                >
-                  <List className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => setViewMode("cards")}
-                  className={`p-3 transition-colors ${viewMode === "cards" ? "bg-blue-100 dark:bg-blue-900 text-blue-700" : "text-slate-500 hover:bg-slate-50"}`}
-                >
-                  <LayoutGrid className="w-5 h-5" />
-                </button>
+
+              <div className="flex items-center gap-4 shrink-0">
+                {adminToken && activeTab === "ZWISCHENRUNDE" && (
+                  <button
+                    onClick={handleOpenSeedingModal}
+                    className="flex items-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm transition-colors font-semibold text-sm"
+                  >
+                    <Settings2 className="w-5 h-5" />
+                    {t.editSeeding}
+                  </button>
+                )}
+                {adminToken && activeTab === "FINALRUNDE" && (
+                  <button
+                    onClick={handleStartFinalRound}
+                    className="flex items-center gap-2 px-4 py-3 bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl shadow-sm transition-colors font-semibold text-sm"
+                  >
+                    <Trophy className="w-5 h-5" />
+                    {t.startFinalRound}
+                  </button>
+                )}
+
+                <div className="flex bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden">
+                  <button
+                    onClick={() => setViewMode("table")}
+                    className={`p-3 transition-colors ${viewMode === "table" ? "bg-blue-100 dark:bg-blue-900 text-blue-700" : "text-slate-500 hover:bg-slate-50"}`}
+                  >
+                    <List className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => setViewMode("cards")}
+                    className={`p-3 transition-colors ${viewMode === "cards" ? "bg-blue-100 dark:bg-blue-900 text-blue-700" : "text-slate-500 hover:bg-slate-50"}`}
+                  >
+                    <LayoutGrid className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -1493,7 +1597,7 @@ export default function App() {
                           </h2>
                           {adminToken && activeTab === "ZWISCHENRUNDE" && (
                             <button
-                              onClick={() => setIsSeedingModalOpen(true)}
+                              onClick={handleOpenSeedingModal}
                               className="text-sm font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
                             >
                               <Settings2 className="w-4 h-4" /> {t.editSeeding}
@@ -1606,75 +1710,136 @@ export default function App() {
 
         {isSeedingModalOpen && adminToken && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-3xl my-8 overflow-hidden flex flex-col max-h-full">
-              <div className="p-4 md:p-6 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
+            <div className="bg-slate-50 dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-4xl my-8 overflow-hidden flex flex-col max-h-[90vh]">
+              <div className="p-4 md:p-6 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center bg-white dark:bg-slate-800 shadow-sm z-10">
                 <h3 className="font-bold text-lg md:text-xl text-slate-800 dark:text-white flex items-center gap-2">
                   <Settings2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                   {t.seedingTitle}
                 </h3>
                 <button
                   onClick={() => setIsSeedingModalOpen(false)}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors bg-white dark:bg-slate-800 p-1.5 rounded-full shadow-sm"
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors bg-slate-100 dark:bg-slate-700 p-1.5 rounded-full shadow-sm"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <div className="p-4 md:p-6 overflow-y-auto bg-slate-50/30 dark:bg-slate-800/30">
-                <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm">
-                  <table className="w-full text-sm text-left">
-                    <thead className="text-xs uppercase bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-b border-gray-200 dark:border-slate-700">
-                      <tr>
-                        <th className="px-4 py-3 text-center">
-                          {t.vorrundenPlatz}
-                        </th>
-                        <th className="px-4 py-3">{t.team}</th>
-                        <th className="px-4 py-3">{t.zugewieseneGruppe}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
-                      {seedingData.map((item) => {
-                        const team = teams.find((t) => t.id === item.team_id);
-                        return (
-                          <tr
-                            key={item.team_id}
-                            className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
-                          >
-                            <td className="px-4 py-3 text-center font-bold text-slate-700 dark:text-slate-300">
-                              {item.vorrunden_platz}
-                            </td>
-                            <td className="px-4 py-3 flex items-center gap-3 font-medium text-slate-800 dark:text-slate-200">
-                              <TeamLogo team={team} size="w-8 h-8" />
-                              {team?.name || "Unbekannt"}
-                            </td>
-                            <td className="px-4 py-3">
-                              <select
-                                value={item.assigned_group}
-                                onChange={(e) =>
-                                  updateSeedingGroup(
-                                    item.team_id,
-                                    e.target.value,
-                                  )
-                                }
-                                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-semibold transition-all cursor-pointer"
+              <div className="p-4 md:p-6 overflow-y-auto flex-1">
+                {pools.map((poolName) => {
+                  const poolTeams = seedingData.filter(
+                    (d) => d.pool === poolName,
+                  );
+                  if (poolTeams.length === 0) return null;
+
+                  return (
+                    <div key={poolName} className="mb-8 last:mb-0">
+                      <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-3 px-1">
+                        {poolName}
+                      </h4>
+                      <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm">
+                        <table className="w-full text-sm text-left whitespace-nowrap">
+                          <thead className="text-xs uppercase bg-slate-100 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 border-b border-gray-200 dark:border-slate-700">
+                            <tr>
+                              <th className="px-4 py-3 w-12 text-center">#</th>
+                              <th className="px-4 py-3">{t.team}</th>
+                              <th
+                                className="px-2 py-3 text-center"
+                                title="Punkte"
                               >
-                                <option value="Gruppe G">Gruppe G</option>
-                                <option value="Gruppe H">Gruppe H</option>
-                                <option value="Gruppe I">Gruppe I</option>
-                                <option value="Gruppe J">Gruppe J</option>
-                                <option value="Gruppe K">Gruppe K</option>
-                                <option value="Gruppe L">Gruppe L</option>
-                              </select>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                                Pkt
+                              </th>
+                              <th
+                                className="px-2 py-3 text-center"
+                                title="Tordifferenz"
+                              >
+                                TD
+                              </th>
+                              <th
+                                className="px-2 py-3 text-center"
+                                title="Erzielte Tore"
+                              >
+                                Tore
+                              </th>
+                              <th className="px-4 py-3 w-48">
+                                {t.zugewieseneGruppe}
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
+                            {poolTeams.map((item, index) => {
+                              const team = teams.find(
+                                (t) => t.id === item.team_id,
+                              );
+                              return (
+                                <tr
+                                  key={item.team_id}
+                                  className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+                                >
+                                  <td className="px-4 py-3 text-center font-bold text-slate-400">
+                                    {index + 1}
+                                  </td>
+                                  <td className="px-4 py-3 flex items-center gap-3 font-medium text-slate-800 dark:text-slate-200">
+                                    <TeamLogo team={team} size="w-6 h-6" />
+                                    <span className="truncate">
+                                      {team?.name || "Unbekannt"}
+                                    </span>
+                                  </td>
+                                  <td className="px-2 py-3 text-center font-bold text-slate-700 dark:text-slate-300">
+                                    {item.stats?.points ?? "-"}
+                                  </td>
+                                  <td className="px-2 py-3 text-center text-slate-600 dark:text-slate-400">
+                                    {item.stats?.goal_diff ?? "-"}
+                                  </td>
+                                  <td className="px-2 py-3 text-center text-slate-600 dark:text-slate-400">
+                                    {item.stats?.goals_scored ?? "-"}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <div className="flex items-center gap-2">
+                                      <select
+                                        value={item.assigned_group}
+                                        onChange={(e) =>
+                                          updateSeedingGroup(
+                                            item.team_id,
+                                            e.target.value,
+                                          )
+                                        }
+                                        className="w-full px-2 py-1.5 bg-slate-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-semibold transition-all cursor-pointer"
+                                      >
+                                        {[
+                                          "Gruppe G",
+                                          "Gruppe H",
+                                          "Gruppe I",
+                                          "Gruppe J",
+                                          "Gruppe K",
+                                          "Gruppe L",
+                                        ].map((g) => (
+                                          <option key={g} value={g}>
+                                            {g}
+                                          </option>
+                                        ))}
+                                      </select>
+                                      {item.conflict_resolved && (
+                                        <div
+                                          title="Gruppe getauscht, um erneutes Vorrunden-Duell zu vermeiden."
+                                          className="text-amber-500 cursor-help shrink-0"
+                                        >
+                                          <Info className="w-5 h-5" />
+                                        </div>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
 
-              <div className="p-4 md:p-6 border-t border-gray-200 dark:border-slate-700 flex justify-end gap-3 bg-white dark:bg-slate-800">
+              <div className="p-4 md:p-6 border-t border-gray-200 dark:border-slate-700 flex justify-end gap-3 bg-white dark:bg-slate-800 z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
                 <button
                   onClick={() => setIsSeedingModalOpen(false)}
                   className="px-5 py-2.5 rounded-lg text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
@@ -1686,7 +1851,7 @@ export default function App() {
                   className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold shadow-sm transition-colors flex items-center gap-2"
                 >
                   <Save className="w-4 h-4" />
-                  {t.save}
+                  Freigeben & Zwischenrunde generieren
                 </button>
               </div>
             </div>

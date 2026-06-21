@@ -87,7 +87,6 @@ export class TournamentController {
     }
   }
 
-  // ACHTUNG FIX A: Die SQL Abfrage sortiert die Gruppen nun garantiert alphabetisch.
   public async getGroups(req: Request, res: Response): Promise<void> {
     try {
       const query = `
@@ -136,6 +135,44 @@ export class TournamentController {
     }
   }
 
+  // --- NEU: Endpunkte für die Setzliste und Phasenübergänge ---
+
+  public async previewSnakeSeeding(req: Request, res: Response): Promise<void> {
+    try {
+      const preview = await this.tournamentFlow.compileIntermediateSeeding();
+      res.json(preview);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  public async approveSeeding(req: Request, res: Response): Promise<void> {
+    const { seeding, startTimeIso } = req.body;
+    try {
+      await this.tournamentFlow.approveIntermediateSeeding(
+        seeding,
+        startTimeIso,
+      );
+      this.broadcastUpdate({ type: "SCHEDULE_UPDATED", groupId: "all" });
+      res.json({ message: "Setzliste bestätigt und Zwischenrunde generiert" });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  public async startFinalRound(req: Request, res: Response): Promise<void> {
+    const { startTimeIso } = req.body;
+    try {
+      await this.tournamentFlow.transitionToFinalRound(startTimeIso);
+      this.broadcastUpdate({ type: "SCHEDULE_UPDATED", groupId: "all" });
+      res.json({ message: "Finalrunde erfolgreich gestartet" });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  // --- ENDE NEU ---
+
   public async generateSwissRound(req: Request, res: Response): Promise<void> {
     const groupId = req.params.groupId as string;
     const startTimeIso = new Date().toISOString();
@@ -180,7 +217,6 @@ export class TournamentController {
     }
   }
 
-  // ACHTUNG FIX C: Diese völlig neue Methode ermöglicht den individuellen Bildupload für Teams.
   public async uploadTeamLogo(req: Request, res: Response): Promise<void> {
     const teamId = req.params.id;
     if (!req.file) {

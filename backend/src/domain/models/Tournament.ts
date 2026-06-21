@@ -4,11 +4,19 @@ export interface SwissPairing {
   away: { team_id: string; rank: number };
 }
 
-// Diese Schnittstelle beschreibt eine Zuweisung in der Setzliste.
+// ACHTUNG FIX: Die Setzliste enthält nun detaillierte Metadaten für das Frontend.
 export interface SeedingAssignment {
   team_id: string;
   original_rank: number;
   assigned_group: string;
+  pool?: string;
+  conflict_resolved?: boolean;
+  stats?: {
+    points: number;
+    goal_diff: number;
+    goals_scored: number;
+    group_rank?: number;
+  };
 }
 
 // Diese Schnittstelle bündelt die kombinierte Tabellenplatzierung über mehrere Runden.
@@ -19,6 +27,7 @@ export interface CombinedStanding {
   total_conceded: number;
   goal_diff: number;
   final_rank: number;
+  group_rank?: number;
 }
 
 // Diese Schnittstelle strukturiert die Aufteilung in die Finalgruppen.

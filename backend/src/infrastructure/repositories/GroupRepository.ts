@@ -8,7 +8,6 @@ import {
 } from "../../domain/models/Tournament";
 import { PostgresClient } from "../database/PostgresClient";
 
-// Diese Klasse regelt den Datenzugriff für alle Gruppen und Tabellen.
 export class GroupRepository {
   private db: PostgresClient;
 
@@ -16,14 +15,12 @@ export class GroupRepository {
     this.db = PostgresClient.getInstance();
   }
 
-  // Diese Methode ruft eine Gruppe anhand ihrer ID ab.
   public async fetchGroupById(groupId: string): Promise<GroupData | null> {
     const query = "SELECT * FROM groups WHERE id = $1";
     const result = await this.db.query(query, [groupId]);
     return (result.rows[0] as GroupData) || null;
   }
 
-  // Diese Methode sucht eine Gruppe anhand ihres Namens und der Phase.
   public async fetchGroupByName(
     name: string,
     phase: string,
@@ -33,14 +30,12 @@ export class GroupRepository {
     return (result.rows[0] as GroupData) || null;
   }
 
-  // Diese Methode holt alle Gruppen einer bestimmten Turnierphase.
   public async fetchGroupsByPhase(phase: string): Promise<GroupData[]> {
     const query = "SELECT * FROM groups WHERE phase = $1 ORDER BY name ASC";
     const result = await this.db.query(query, [phase]);
     return result.rows as GroupData[];
   }
 
-  // Diese Methode liefert alle Mannschaften einer spezifischen Gruppe zurück.
   public async fetchTeamsByGroup(groupId: string): Promise<TeamData[]> {
     const query = `
             SELECT t.* FROM teams t 
@@ -51,7 +46,6 @@ export class GroupRepository {
     return result.rows as TeamData[];
   }
 
-  // Diese Methode lädt die aktuelle Tabelle einer einzelnen Gruppe.
   public async fetchStandingsForGroup(groupId: string): Promise<any[]> {
     const query =
       "SELECT * FROM group_teams WHERE group_id = $1 ORDER BY rank ASC";
@@ -59,31 +53,34 @@ export class GroupRepository {
     return result.rows;
   }
 
-  // Diese Methode aggregiert die Tabellen aller Gruppen einer Phase.
+  // ACHTUNG FIX: Hier lag der Fehler! Die Abfrage erzwingt jetzt zuerst die Sortierung nach der internen Gruppenplatzierung (group_rank).
   public async fetchOverallStandings(
     phase: string,
   ): Promise<CombinedStanding[]> {
     const query = `
-            SELECT gt.team_id, SUM(gt.points) as total_points, SUM(gt.goals_scored) as total_scored, 
-                   SUM(gt.goals_conceded) as total_conceded, SUM(gt.goals_scored - gt.goals_conceded) as goal_diff
+            SELECT gt.team_id, 
+                   SUM(gt.points)::int as total_points, 
+                   SUM(gt.goals_scored)::int as total_scored, 
+                   SUM(gt.goals_conceded)::int as total_conceded, 
+                   (SUM(gt.goals_scored) - SUM(gt.goals_conceded))::int as goal_diff,
+                   MIN(gt.rank)::int as group_rank
             FROM group_teams gt
             JOIN groups g ON gt.group_id = g.id
             WHERE g.phase = $1
             GROUP BY gt.team_id
-            ORDER BY total_points DESC, goal_diff DESC, total_scored DESC
+            ORDER BY group_rank ASC, total_points DESC, goal_diff DESC, total_scored DESC
         `;
     const result = await this.db.query(query, [phase]);
     return result.rows as CombinedStanding[];
   }
 
-  // Diese Methode berechnet die Gesamttabelle über mehrere Phasen hinweg.
   public async fetchCombinedStandings(
     phases: string[],
   ): Promise<CombinedStanding[]> {
     const placeholders = phases.map((_, i) => `$${i + 1}`).join(",");
     const query = `
-            SELECT gt.team_id, SUM(gt.points) as total_points, SUM(gt.goals_scored) as total_scored, 
-                   SUM(gt.goals_conceded) as total_conceded, SUM(gt.goals_scored - gt.goals_conceded) as goal_diff
+            SELECT gt.team_id, SUM(gt.points)::int as total_points, SUM(gt.goals_scored)::int as total_scored, 
+                   SUM(gt.goals_conceded)::int as total_conceded, (SUM(gt.goals_scored) - SUM(gt.goals_conceded))::int as goal_diff
             FROM group_teams gt
             JOIN groups g ON gt.group_id = g.id
             WHERE g.phase IN (${placeholders})
@@ -94,7 +91,6 @@ export class GroupRepository {
     return result.rows as CombinedStanding[];
   }
 
-  // Diese Methode aktualisiert die Tabellenplätze nach einem Spiel.
   public async updateStandings(
     groupId: string,
     standings: any[],
@@ -117,7 +113,6 @@ export class GroupRepository {
     }
   }
 
-  // Diese Methode speichert die Zuordnungen für die Zwischenrunde.
   public async updateAssignedGroups(
     seeding: SeedingAssignment[],
   ): Promise<void> {
@@ -137,7 +132,6 @@ export class GroupRepository {
     }
   }
 
-  // Diese Methode ordnet die Mannschaften in die Gold- und Silberrunde ein.
   public async assignFinalRoundGroups(
     gold: CombinedStanding[],
     silver: CombinedStanding[],

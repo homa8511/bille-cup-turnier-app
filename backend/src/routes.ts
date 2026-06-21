@@ -151,6 +151,29 @@ router.put(
     tournamentController.updatePageContent(req, res),
 );
 
+// --- NEUE ENDPUNKTE FÜR DIE PHASENÜBERGÄNGE ---
+router.get(
+  "/admin/preview-snake",
+  authenticateToken,
+  (req: Request, res: Response) =>
+    tournamentController.previewSnakeSeeding(req, res),
+);
+
+router.post(
+  "/admin/approve-seeding",
+  authenticateToken,
+  (req: Request, res: Response) =>
+    tournamentController.approveSeeding(req, res),
+);
+
+router.post(
+  "/admin/start-finalround",
+  authenticateToken,
+  (req: Request, res: Response) =>
+    tournamentController.startFinalRound(req, res),
+);
+// --- ENDE NEU ---
+
 router.post(
   "/admin/teams/:id/logo",
   authenticateToken,

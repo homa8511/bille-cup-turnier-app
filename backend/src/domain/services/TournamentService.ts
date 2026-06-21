@@ -8,7 +8,6 @@ import {
   SwissPairing,
 } from "../models/Tournament";
 
-// Diese Klasse bündelt alle domänenspezifischen Geschäftsregeln des Turniers in reinen Funktionen.
 export class TournamentService {
   public calculateStandings(
     teams: { id: string }[],
@@ -129,6 +128,7 @@ export class TournamentService {
     };
   }
 
+  // ACHTUNG FIX: Dieser Algorithmus prüft nun korrekt auf Kollisionen mit bereits platzierten Teams der vorherigen Töpfe.
   public distributeSnakeSeeding(
     vorrundenStandings: CombinedStanding[],
     vorrundenMatchHistory: Record<string, string[]>,
@@ -143,48 +143,101 @@ export class TournamentService {
     ];
     const waves = [
       [0, 1, 2, 3, 4, 5],
-      [11, 10, 9, 8, 7, 6],
+      [11, 10, 9, 8, 7, 6], // Snake rückwärts
       [12, 13, 14, 15, 16, 17],
-      [23, 22, 21, 20, 19, 18],
+      [23, 22, 21, 20, 19, 18], // Snake rückwärts
+    ];
+    const poolNames = [
+      "Topf 1 (1. Plätze)",
+      "Topf 2 (2. Plätze)",
+      "Topf 3 (3. Plätze)",
+      "Topf 4 (4. Plätze)",
     ];
 
-    let seeding: SeedingAssignment[] = [];
+    let finalSeeding: SeedingAssignment[] = [];
+    let groupAssignments: Record<string, string[]> = {
+      "Gruppe G": [],
+      "Gruppe H": [],
+      "Gruppe I": [],
+      "Gruppe J": [],
+      "Gruppe K": [],
+      "Gruppe L": [],
+    };
 
     for (let waveIndex = 0; waveIndex < waves.length; waveIndex++) {
       const wave = waves[waveIndex];
       let currentWaveTeams: SeedingAssignment[] = [];
 
+      // 1. Initiales Placing der Teams für diese Welle (Topf)
       for (let i = 0; i < wave.length; i++) {
         const teamIndex = wave[i];
-        if (vorrundenStandings[teamIndex]) {
+        const standing = vorrundenStandings[teamIndex];
+        if (standing) {
           currentWaveTeams.push({
-            team_id: vorrundenStandings[teamIndex].team_id,
+            team_id: standing.team_id,
             original_rank: teamIndex + 1,
             assigned_group: targetGroups[i],
+            pool: poolNames[waveIndex],
+            conflict_resolved: false,
+            stats: {
+              points: standing.total_points,
+              goal_diff: standing.goal_diff,
+              goals_scored: standing.total_scored,
+              group_rank: standing.group_rank,
+            },
           });
         }
       }
 
+      // 2. Konflikterkennung und Auflösung (Duell-Vermeidung)
       for (let i = 0; i < currentWaveTeams.length; i++) {
-        for (let j = i + 1; j < currentWaveTeams.length; j++) {
-          const teamA = currentWaveTeams[i];
-          const teamB = currentWaveTeams[j];
-          const historyA = vorrundenMatchHistory[teamA.team_id] || [];
+        let teamA = currentWaveTeams[i];
+        let historyA = vorrundenMatchHistory[teamA.team_id] || [];
 
-          const conflict = historyA.includes(teamB.team_id);
+        // Hat die zugewiesene Gruppe bereits ein Team, gegen das Team A in der Vorrunde gespielt hat?
+        let hasConflict = groupAssignments[teamA.assigned_group].some((tId) =>
+          historyA.includes(tId),
+        );
 
-          if (conflict) {
-            const tempGroup = teamA.assigned_group;
-            teamA.assigned_group = teamB.assigned_group;
-            teamB.assigned_group = tempGroup;
+        if (hasConflict) {
+          // Finde einen Tauschpartner in demselben Topf, für den der Tausch ebenfalls konfliktfrei wäre
+          for (let j = 0; j < currentWaveTeams.length; j++) {
+            if (i === j) continue;
+            let teamB = currentWaveTeams[j];
+            let historyB = vorrundenMatchHistory[teamB.team_id] || [];
+
+            let teamA_canGoTo_BGroup = !groupAssignments[
+              teamB.assigned_group
+            ].some((tId) => historyA.includes(tId));
+            let teamB_canGoTo_AGroup = !groupAssignments[
+              teamA.assigned_group
+            ].some((tId) => historyB.includes(tId));
+
+            if (teamA_canGoTo_BGroup && teamB_canGoTo_AGroup) {
+              // Tausche die Zuweisungen und markiere es für das Frontend
+              let tempGroup = teamA.assigned_group;
+              teamA.assigned_group = teamB.assigned_group;
+              teamB.assigned_group = tempGroup;
+              teamA.conflict_resolved = true;
+              teamB.conflict_resolved = true;
+              break;
+            }
           }
         }
       }
 
-      seeding.push(...currentWaveTeams);
+      // 3. Teams der Welle fest in die Gruppen-Historie für die nächste Welle schreiben
+      currentWaveTeams.forEach((t) => {
+        if (groupAssignments[t.assigned_group]) {
+          groupAssignments[t.assigned_group].push(t.team_id);
+        }
+      });
+
+      finalSeeding.push(...currentWaveTeams);
     }
 
-    return seeding;
+    // Am Ende wieder in die korrekte Reihenfolge 1-24 für die Ausgabe bringen
+    return finalSeeding.sort((a, b) => a.original_rank - b.original_rank);
   }
 
   public calculateSwissPairings(
@@ -224,7 +277,6 @@ export class TournamentService {
           if (result) return result;
         }
       }
-
       return null;
     };
 
@@ -247,7 +299,6 @@ export class TournamentService {
     return optimalPairings || [];
   }
 
-  // ACHTUNG FIX B: Dieser Algorithmus verschränkt die Paarungen (Round-Robin-Polygon) zur Vermeidung direkter Doppelspiele.
   public generateRoundRobinPairings(
     teamIds: string[],
   ): { home: string; away: string }[] {
@@ -269,7 +320,6 @@ export class TournamentService {
           pairings.push({ home, away });
         }
       }
-      // Teams im Polygon rotieren (Team 0 bleibt fixiert).
       currentTeams = [
         currentTeams[0],
         currentTeams[numTeams - 1],
