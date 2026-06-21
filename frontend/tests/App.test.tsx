@@ -1,10 +1,14 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../src/App";
-import * as useTournamentDataHook from "../src/hooks/useTournamentData";
 
-// Wir mocken den gesamten Hook, um die API-Aufrufe im Test zu verhindern.
-vi.mock("../src/hooks/useTournamentData");
+// Wir mocken den Hook aus src/hooks/useTournamentData
+vi.mock("../src/hooks/useTournamentData", () => {
+  return {
+    useTournamentData: vi.fn(),
+  };
+});
+import { useTournamentData } from "../src/hooks/useTournamentData";
 
 describe("App Hauptkomponente", () => {
   beforeEach(() => {
@@ -13,7 +17,7 @@ describe("App Hauptkomponente", () => {
 
   it("should display the loading screen when data is being fetched", () => {
     // Arrange
-    vi.spyOn(useTournamentDataHook, "useTournamentData").mockReturnValue({
+    vi.mocked(useTournamentData).mockReturnValue({
       teams: [],
       groups: [],
       matches: [],
@@ -31,10 +35,10 @@ describe("App Hauptkomponente", () => {
     ).toBeInTheDocument();
   });
 
-  it("should render the tournament interface when data is successfully loaded", () => {
+  it("should render the tournament interface when data is successfully loaded", async () => {
     // Arrange
-    vi.spyOn(useTournamentDataHook, "useTournamentData").mockReturnValue({
-      teams: [{ id: "t1", name: "FC Bergedorf 85", logo_path: null }],
+    vi.mocked(useTournamentData).mockReturnValue({
+      teams: [{ id: "t1", name: "FC Bergedorf 85", logo_path: undefined }],
       groups: [
         {
           id: "g1",
@@ -58,10 +62,10 @@ describe("App Hauptkomponente", () => {
     expect(screen.getByText("Gruppe A")).toBeInTheDocument();
   });
 
-  it("should switch to the info tab when the corresponding button is clicked", () => {
+  it("should switch to the info tab when the corresponding button is clicked", async () => {
     // Arrange
-    vi.spyOn(useTournamentDataHook, "useTournamentData").mockReturnValue({
-      teams: [],
+    vi.mocked(useTournamentData).mockReturnValue({
+      teams: [{ id: "t1", name: "FC Bergedorf 85", logo_path: undefined }],
       groups: [],
       matches: [],
       isLoading: false,
@@ -78,10 +82,10 @@ describe("App Hauptkomponente", () => {
     expect(screen.getByText("Turnierregeln")).toBeInTheDocument();
   });
 
-  it("should open the login modal when the login button is clicked", () => {
+  it("should open the login modal when the login button is clicked", async () => {
     // Arrange
-    vi.spyOn(useTournamentDataHook, "useTournamentData").mockReturnValue({
-      teams: [],
+    vi.mocked(useTournamentData).mockReturnValue({
+      teams: [{ id: "t1", name: "FC Bergedorf 85", logo_path: undefined }],
       groups: [],
       matches: [],
       isLoading: false,
@@ -90,15 +94,12 @@ describe("App Hauptkomponente", () => {
     });
     render(<App />);
 
-    // Wir suchen den Login-Button anhand des Icons (welches durch lucide-react gerendert wird)
-    // Alternativ suchen wir den Button, der keine Textbeschriftung hat, aber ein svg enthält
-    const loginButton = screen
-      .getAllByRole("button")
-      .find((btn) => btn.innerHTML.includes("lucide-log-in"));
-
     // Act
+    const loginButton = screen
+    .getAllByRole("button")
+    .find((btn) => btn.innerHTML.includes("lucide-log-in") || btn.innerHTML.includes("LogIn") || btn.querySelector('svg.lucide-log-in'));
     if (loginButton) {
-      fireEvent.click(loginButton);
+        fireEvent.click(loginButton);
     }
 
     // Assert
