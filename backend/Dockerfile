@@ -24,6 +24,10 @@ ENV NODE_ENV=production
 # Arbeitsverzeichnis festlegen
 WORKDIR /usr/src/app
 
+# Erstelle die Ordnerstruktur und setze den Besitzer auf den 'node' User
+RUN mkdir -p /usr/src/app/public/images/uploads && \
+    chown -R node:node /usr/src/app/public
+    
 # Nur die package.json Dateien für die Produktions-Abhängigkeiten kopieren
 COPY package*.json ./
 

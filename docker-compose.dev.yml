@@ -34,6 +34,8 @@ services:
       - db
     networks:
       - dev-net
+    volumes:
+      - uploads-data:/usr/src/app/public
 
   frontend:
     build:
@@ -52,3 +54,4 @@ networks:
 
 volumes:
   pgdata:
+  uploads-data:
