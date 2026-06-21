@@ -2,6 +2,9 @@ import {
   ChevronDown,
   ChevronUp,
   Edit,
+  FileSpreadsheet,
+  LayoutGrid,
+  List,
   LogIn,
   Moon,
   Plus,
@@ -15,37 +18,338 @@ import {
   X,
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
-import { GroupTable } from "./components/tournament/GroupTable";
-import { TimeSlot } from "./components/tournament/TimeSlot";
-import { Modal } from "./components/ui/Modal";
-import { useTournamentData } from "./hooks/useTournamentData";
 
-const initialMarkdown = `
-# Willkommen beim U10 Bille Cup 2026!
+// --- Types ---
+export type Team = { id: string; name: string; logo_path?: string };
+export type GroupStanding = {
+  team_id: string;
+  matches_played: number;
+  goals_scored: number;
+  goals_conceded: number;
+  points: number;
+  goal_diff: number;
+  rank: number;
+};
+export type Group = {
+  id: string;
+  name: string;
+  phase: string;
+  field_numbers?: number[];
+  standings?: GroupStanding[];
+  teamIds?: string[];
+};
+export type Match = {
+  id: string;
+  group_id: string;
+  home_team_id: string | null;
+  away_team_id: string | null;
+  match_number: number;
+  start_time: string;
+  status: "GEPLANT" | "LIVE" | "BEENDET";
+  goals_home: number | null;
+  goals_away: number | null;
+  home_placeholder: string | null;
+  away_placeholder: string | null;
+};
 
-**Datum:** 27.06.2026
-**Ort:** Billtalstadion, Hamburg-Bergedorf
+// --- Hooks ---
+export function useTournamentData() {
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-![Stadion](https://images.unsplash.com/photo-1518605368461-1ee7e163396f?auto=format&fit=crop&q=80&w=800)
+  const fetchAllData = React.useCallback(async () => {
+    try {
+      const isPreview =
+        window.location.protocol.startsWith("blob") ||
+        window.location.origin === "null";
+      if (isPreview) {
+        setIsLoading(false);
+        return;
+      }
 
-### Turnierregeln
-* Spieldauer: 10 Minuten
-* Sieg: 3 Punkte
-* Unentschieden: 1 Punkt
-`;
+      const [teamsRes, groupsRes, matchesRes] = await Promise.all([
+        fetch("/api/teams"),
+        fetch("/api/groups"),
+        fetch("/api/matches"),
+      ]);
 
-const defaultSponsors = [
-  "https://placehold.co/300x150/ffffff/000000?text=Sponsor+1",
-  "https://placehold.co/300x150/ffffff/000000?text=Sponsor+2",
-];
+      if (!teamsRes.ok || !groupsRes.ok || !matchesRes.ok)
+        throw new Error("Fehler beim Laden der Backend-Daten.");
 
-const translations: Record<string, any> = {
+      setTeams(await teamsRes.json());
+      setGroups(await groupsRes.json());
+      setMatches(await matchesRes.json());
+      setError(null);
+    } catch (err) {
+      setError("Fehler beim Laden der Backend-Daten.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAllData();
+    const isPreview =
+      window.location.protocol.startsWith("blob") ||
+      window.location.origin === "null";
+    if (isPreview) return;
+
+    const eventSource = new EventSource("/api/live");
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (
+          [
+            "MATCH_UPDATED",
+            "STANDINGS_UPDATED",
+            "SCHEDULE_UPDATED",
+            "TOURNAMENT_INITIALIZED",
+          ].includes(data.type)
+        ) {
+          fetchAllData();
+        }
+      } catch (e) {
+        console.error("SSE Error", e);
+      }
+    };
+    return () => eventSource.close();
+  }, [fetchAllData]);
+
+  return { teams, groups, matches, isLoading, error, refetch: fetchAllData };
+}
+
+// --- Components ---
+export function Modal({
+  isOpen,
+  onClose,
+  title,
+  children,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string | React.ReactNode;
+  children: React.ReactNode;
+}) {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md my-8 overflow-hidden flex flex-col">
+        <div className="p-4 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
+          <h3 className="font-bold text-lg text-slate-800 dark:text-white">
+            {title}
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors p-1 rounded-full"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="p-2">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+export function GroupTable({
+  group,
+  teams,
+  selectedTeam,
+}: {
+  group: Group;
+  teams: Team[];
+  selectedTeam?: string;
+}) {
+  if (!group.standings || group.standings.length === 0) return null;
+  return (
+    <div className="overflow-x-auto w-full bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
+      <table className="w-full text-sm text-left whitespace-nowrap">
+        <thead className="text-xs uppercase bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400">
+          <tr>
+            <th className="px-4 py-3">Pl.</th>
+            <th className="px-4 py-3">Team</th>
+            <th className="px-4 py-3 text-center">Sp.</th>
+            <th className="px-4 py-3 text-center">Tore</th>
+            <th className="px-4 py-3 text-center">Diff</th>
+            <th className="px-4 py-3 text-center bg-blue-600 text-white dark:bg-blue-700">
+              Pkt
+            </th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
+          {group.standings.map((s, i) => {
+            const team = teams.find((t) => t.id === s.team_id);
+            const isSelected = selectedTeam === s.team_id;
+            return (
+              <tr
+                key={s.team_id}
+                className={`transition-colors ${isSelected ? "bg-blue-50 dark:bg-blue-900/20" : "hover:bg-slate-50 dark:hover:bg-slate-700/50"}`}
+              >
+                <td className="px-4 py-3 font-bold text-slate-700 dark:text-slate-300">
+                  {s.rank ?? i + 1}.
+                </td>
+                <td
+                  className={`px-4 py-3 font-semibold ${isSelected ? "text-blue-700 dark:text-blue-400" : "text-slate-800 dark:text-slate-200"}`}
+                >
+                  {team?.name || "Unbekannt"}
+                </td>
+                <td className="px-4 py-3 text-center text-slate-600 dark:text-slate-400">
+                  {s.matches_played ?? 0}
+                </td>
+                <td className="px-4 py-3 text-center text-slate-600 dark:text-slate-400">
+                  {s.goals_scored ?? 0}:{s.goals_conceded ?? 0}
+                </td>
+                <td className="px-4 py-3 text-center text-slate-600 dark:text-slate-400">
+                  {s.goal_diff ?? 0}
+                </td>
+                <td className="px-4 py-3 text-center font-bold text-blue-700 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/10">
+                  {s.points}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export function MatchCard({
+  match,
+  homeTeam,
+  awayTeam,
+  isAdmin,
+  onUpdateResult,
+}: {
+  match: Match;
+  homeTeam?: Team;
+  awayTeam?: Team;
+  isAdmin: boolean;
+  onUpdateResult: (id: string, h: number, a: number) => void;
+}) {
+  const [editMode, setEditMode] = useState(false);
+  const [hScore, setHScore] = useState<number | "">(match.goals_home ?? "");
+  const [aScore, setAScore] = useState<number | "">(match.goals_away ?? "");
+
+  const handleSave = () => {
+    if (typeof hScore === "number" && typeof aScore === "number") {
+      onUpdateResult(match.id, hScore, aScore);
+      setEditMode(false);
+    }
+  };
+
+  const isLive = match.status === "LIVE";
+  const isFinished = match.status === "BEENDET";
+  const homeName = homeTeam?.name || match.home_placeholder || "Unbekannt";
+  const awayName = awayTeam?.name || match.away_placeholder || "Unbekannt";
+
+  return (
+    <div
+      className={`p-4 rounded-xl border transition-colors shadow-sm flex flex-col gap-3 ${isLive ? "bg-green-50/50 border-green-200 dark:bg-green-900/10 dark:border-green-800/50" : "bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700"} relative`}
+    >
+      <div className="flex justify-between text-xs font-bold text-slate-500 dark:text-slate-400">
+        <span>Spiel {match.match_number}</span>
+        <span className="flex items-center gap-1">
+          {isLive && (
+            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+          )}
+          {new Date(match.start_time).toLocaleTimeString("de-DE", {
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+        </span>
+      </div>
+      <div className="flex justify-between items-center gap-2">
+        <span className="flex-1 text-right font-semibold text-slate-800 dark:text-slate-200 truncate pr-2">
+          {homeName}
+        </span>
+        <div className="w-20 shrink-0 text-center font-bold text-lg bg-slate-100 dark:bg-slate-900 rounded-lg py-1.5 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700">
+          {editMode ? (
+            <div className="flex justify-center gap-1 items-center px-1">
+              <input
+                type="number"
+                min="0"
+                className="w-6 text-center bg-transparent border-b border-blue-400 focus:outline-none appearance-none"
+                value={hScore}
+                onChange={(e) =>
+                  setHScore(e.target.value === "" ? "" : Number(e.target.value))
+                }
+              />
+              <span>:</span>
+              <input
+                type="number"
+                min="0"
+                className="w-6 text-center bg-transparent border-b border-blue-400 focus:outline-none appearance-none"
+                value={aScore}
+                onChange={(e) =>
+                  setAScore(e.target.value === "" ? "" : Number(e.target.value))
+                }
+              />
+            </div>
+          ) : isFinished ? (
+            `${match.goals_home} : ${match.goals_away}`
+          ) : isLive ? (
+            "LIVE"
+          ) : (
+            "- : -"
+          )}
+        </div>
+        <span className="flex-1 text-left font-semibold text-slate-800 dark:text-slate-200 truncate pl-2">
+          {awayName}
+        </span>
+      </div>
+      {isAdmin && (
+        <div className="mt-2 pt-3 border-t border-gray-100 dark:border-slate-700 flex justify-center">
+          {editMode ? (
+            <div className="flex gap-2 w-full">
+              <button
+                onClick={() => setEditMode(false)}
+                className="flex-1 text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 py-1.5 rounded transition"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={handleSave}
+                className="flex-1 text-xs font-semibold bg-green-600 hover:bg-green-700 text-white py-1.5 rounded transition"
+              >
+                Speichern
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setEditMode(true)}
+              className="w-full text-xs font-semibold bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 py-1.5 rounded transition"
+            >
+              Ergebnis eintragen
+            </button>
+          )}
+        </div>
+      )}
+      {isLive && !isAdmin && (
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-20 pointer-events-none">
+          <span className="font-bold text-green-500 text-3xl tracking-widest animate-pulse">
+            LIVE
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const initialMarkdown = `# Willkommen beim U10 Bille Cup 2026!\n\n**Datum:** 27.06.2026\n**Ort:** Billtalstadion, Hamburg-Bergedorf\n\n![Stadion](https://images.unsplash.com/photo-1518605368461-1ee7e163396f?auto=format&fit=crop&q=80&w=800)\n\n### Turnierregeln\n* Spieldauer: 10 Minuten\n* Sieg: 3 Punkte\n* Unentschieden: 1 Punkt`;
+
+type Language = "de" | "en";
+const translations: Record<Language, Record<string, string>> = {
   de: {
     title: "U10 Bille Cup 2026",
     vorrunde: "Vorrunde",
     zwischenrunde: "Zwischenrunde",
     finalrunde: "Finalrunde",
     infos: "Turnierinfos",
+    search: "Nach Team suchen...",
     filterLabel: "Mannschaft filtern",
     allTeams: "Alle Teams anzeigen",
     login: "Admin Login",
@@ -55,16 +359,50 @@ const translations: Record<string, any> = {
     edit: "Bearbeiten",
     save: "Speichern",
     cancel: "Abbrechen",
-    matches: "Spielplan",
+    field: "Feld",
+    live: "Live",
+    next: "Nächstes Spiel",
     noMatches: "Keine Spiele gefunden.",
+    standings: "Tabelle",
+    matches: "Spielplan",
+    team: "Teilnehmer",
+    sp: "SP",
+    goals: "T",
+    td: "TD",
+    pts: "PKT",
+    nr: "Nr.",
+    f: "F",
+    beginn: "Beginn",
+    gr: "Gr",
+    spiel: "Spiel",
+    ergebnis: "Ergebnis",
+    unknown: "Unbekanntes Team",
+    placeholderHome: "Sieger Heim",
+    placeholderAway: "Sieger Gast",
     organizer: "Ausrichter / Verein",
     sponsors: "Sponsoren",
     uploadLogo: "Logo hochladen",
     addSponsor: "Sponsor hinzufügen",
     remove: "Entfernen",
+    viewCards: "Kartenansicht",
+    viewTable: "Tabellenansicht",
     editSeeding: "Setzliste bearbeiten",
     seedingTitle: "Setzliste Zwischenrunde (Snake-System)",
-    loading: "Turnierdaten werden geladen...",
+    vorrundenPlatz: "VR-Platz",
+    zugewieseneGruppe: "Zugewiesene Gruppe",
+    adminArea: "Admin-Bereich",
+    settings: "Globale Einstellungen",
+    initTournament: "Turnier Initialisieren",
+    initWarning:
+      "Achtung: Dies löscht alle aktuellen Daten und berechnet den Spielplan komplett neu!",
+    matchDuration: "Spieldauer (Min)",
+    pauseDuration: "Pause (Min)",
+    startTime: "Startzeit",
+    bulkTeamsLabel: "24 Mannschaften eintragen oder CSV hochladen",
+    uploadCsvLabel: "Teams per CSV hochladen",
+    csvFormatHint: "Format: Team-Name;Gruppe (z.B. HSV I;Gruppe B)",
+    csvSuccess: "CSV erfolgreich geladen",
+    discardCsv: "CSV verwerfen",
   },
   en: {
     title: "U10 Bille Cup 2026",
@@ -72,6 +410,7 @@ const translations: Record<string, any> = {
     zwischenrunde: "Intermediate",
     finalrunde: "Finals",
     infos: "Tournament Info",
+    search: "Search team...",
     filterLabel: "Filter by team",
     allTeams: "Show all teams",
     login: "Admin Login",
@@ -81,20 +420,54 @@ const translations: Record<string, any> = {
     edit: "Edit",
     save: "Save",
     cancel: "Cancel",
-    matches: "Matches",
+    field: "Pitch",
+    live: "Live",
+    next: "Next match",
     noMatches: "No matches found.",
+    standings: "Standings",
+    matches: "Matches",
+    team: "Team",
+    sp: "MP",
+    goals: "G",
+    td: "GD",
+    pts: "PTS",
+    nr: "No.",
+    f: "P",
+    beginn: "Start",
+    gr: "Gr",
+    spiel: "Match",
+    ergebnis: "Result",
+    unknown: "Unknown Team",
+    placeholderHome: "Winner Home",
+    placeholderAway: "Winner Away",
     organizer: "Organizer / Club",
     sponsors: "Sponsors",
     uploadLogo: "Upload Logo",
     addSponsor: "Add Sponsor",
     remove: "Remove",
+    viewCards: "Card View",
+    viewTable: "Table View",
     editSeeding: "Edit Seeding List",
     seedingTitle: "Intermediate Seeding (Snake System)",
-    loading: "Loading tournament data...",
+    vorrundenPlatz: "Prelim Rank",
+    zugewieseneGruppe: "Assigned Group",
+    adminArea: "Admin Area",
+    settings: "Global Settings",
+    initTournament: "Initialize Tournament",
+    initWarning:
+      "Warning: This will delete all current data and recalculate the entire schedule!",
+    matchDuration: "Match Duration (Min)",
+    pauseDuration: "Pause (Min)",
+    startTime: "Start Time",
+    bulkTeamsLabel: "Enter 24 Teams or upload CSV",
+    uploadCsvLabel: "Upload Teams via CSV",
+    csvFormatHint: "Format: Team Name;Group (e.g. HSV I;Group B)",
+    csvSuccess: "CSV loaded successfully",
+    discardCsv: "Discard CSV",
   },
 };
 
-const renderMarkdown = (text: string) => {
+const renderMarkdown = (text: string | null | undefined) => {
   if (!text) return { __html: "" };
   let html = text
     .replace(
@@ -128,38 +501,45 @@ const renderMarkdown = (text: string) => {
 
 export default function App() {
   const { teams, groups, matches, isLoading, refetch } = useTournamentData();
-
   const [activeTab, setActiveTab] = useState("VORRUNDE");
-  const [language, setLanguage] = useState("de");
+  const [language, setLanguage] = useState<Language>("de");
   const [theme, setTheme] = useState("light");
   const [selectedTeam, setSelectedTeam] = useState("");
-
-  const [adminToken, setAdminToken] = useState("");
+  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
+  const [adminToken, setAdminToken] = useState<string | null>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
-
   const [isEditingInfo, setIsEditingInfo] = useState(false);
-  const [editInfoText, setEditInfoText] = useState("");
   const [tournamentInfo, setTournamentInfo] = useState(initialMarkdown);
+  const [editInfoText, setEditInfoText] = useState("");
   const [collapsedSchedules, setCollapsedSchedules] = useState<
     Record<string, boolean>
   >({});
-
   const [tournamentLogo, setTournamentLogo] = useState<string | null>(null);
   const [organizerInfo, setOrganizerInfo] = useState(
     "TSG Bergedorf\nBilltalstadion\n21029 Hamburg",
   );
   const [isEditingOrganizer, setIsEditingOrganizer] = useState(false);
   const [editOrganizerText, setEditOrganizerText] = useState("");
-  const [sponsors, setSponsors] = useState<string[]>(defaultSponsors);
-
-  // Hintergrundbild State
-  const [bgImage] = useState(
-    "https://images.unsplash.com/photo-1518605368461-1ee7e163396f?auto=format&fit=crop&q=80&w=1920",
-  );
-
+  const [sponsors, setSponsors] = useState<string[]>([
+    "https://placehold.co/300x150/ffffff/000000?text=Sponsor+1",
+  ]);
   const [isSeedingModalOpen, setIsSeedingModalOpen] = useState(false);
-  const [seedingData, setSeedingData] = useState<any[]>([]); // Wird später vom Backend befüllt
+  const [seedingData, setSeedingData] = useState<any[]>([]);
+
+  // Admin Init State
+  const [adminMatchDuration, setAdminMatchDuration] = useState(10);
+  const [adminPauseDuration, setAdminPauseDuration] = useState(2);
+  const [adminVorrundeStart, setAdminVorrundeStart] =
+    useState("2026-06-27T10:00");
+  const [adminZwischenrundeStart, setAdminZwischenrundeStart] =
+    useState("2026-06-27T11:30");
+  const [adminFinalrundeStart, setAdminFinalrundeStart] =
+    useState("2026-06-27T13:30");
+  const [bulkTeamsText, setBulkTeamsText] = useState("");
+  const [csvTeams, setCsvTeams] = useState<
+    { id: string; name: string; group: string }[]
+  >([]);
 
   const t = translations[language];
 
@@ -169,31 +549,36 @@ export default function App() {
       window.matchMedia("(prefers-color-scheme: dark)").matches
     ) {
       setTheme("dark");
+      document.documentElement.classList.add("dark");
     }
   }, []);
 
   const toggleLanguage = () => setLanguage((l) => (l === "de" ? "en" : "de"));
-  const toggleTheme = () =>
-    setTheme((prev) => (prev === "light" ? "dark" : "light"));
-  const toggleSchedule = (groupId: string) =>
-    setCollapsedSchedules((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
+  const toggleTheme = () => {
+    setTheme((current) => {
+      const isDark = current === "light";
+      document.documentElement.classList.toggle("dark", isDark);
+      return isDark ? "dark" : "light";
+    });
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch("/api/admin/login", {
+      const res = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(loginForm),
       });
-      if (response.ok) {
-        const data = await response.json();
+      if (res.ok) {
+        const data = await res.json();
         setAdminToken(data.token);
         setShowLoginModal(false);
+        setLoginForm({ username: "", password: "" });
       } else {
         alert("Login fehlgeschlagen.");
       }
-    } catch (err) {
+    } catch {
       alert("Netzwerkfehler beim Login.");
     }
   };
@@ -205,7 +590,7 @@ export default function App() {
   ) => {
     if (!adminToken) return;
     try {
-      const response = await fetch(`/api/admin/matches/${matchId}/result`, {
+      const res = await fetch(`/api/admin/matches/${matchId}/result`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -213,20 +598,242 @@ export default function App() {
         },
         body: JSON.stringify({ goals_home: home, goals_away: away }),
       });
-      if (response.ok) {
-        refetch();
-      }
-    } catch (err) {
-      console.error("Fehler beim Speichern des Ergebnisses", err);
+      if (res.ok) refetch();
+      else alert("Fehler beim Speichern.");
+    } catch {
+      console.error("Netzwerkfehler beim Speichern");
     }
   };
 
-  const handleStartRound = async (time: string) => {
+  const handleSaveSettings = async () => {
     if (!adminToken) return;
-    console.log("Runde anpfeifen für:", time);
-    alert(
-      `Alle geplanten Spiele für ${new Date(time).toLocaleTimeString()} wurden angepfiffen! (Backend-Integration folgt)`,
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({
+          match_duration_minutes: adminMatchDuration,
+          pause_duration_minutes: adminPauseDuration,
+          phase_start_time: new Date(adminVorrundeStart).toISOString(),
+        }),
+      });
+      if (res.ok) alert("Einstellungen erfolgreich gespeichert!");
+      else alert("Fehler beim Speichern der Einstellungen.");
+    } catch {
+      alert("Netzwerkfehler");
+    }
+  };
+
+  const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      const lines = text
+        .split(/\r?\n/)
+        .filter((line) => line.trim().length > 0);
+      const parsed = lines
+        .map((line) => {
+          const parts = line.split(/[;,]/);
+          return {
+            id: crypto.randomUUID(),
+            name: parts[0]?.trim() || "",
+            group: parts[1]?.trim() || "",
+          };
+        })
+        .filter((t) => t.name && t.group);
+
+      if (
+        parsed.length > 0 &&
+        (parsed[0].name.toLowerCase().includes("team") ||
+          parsed[0].group.toLowerCase().includes("gruppe"))
+      ) {
+        parsed.shift();
+      }
+      setCsvTeams(parsed);
+    };
+    reader.readAsText(file, "utf-8");
+    e.target.value = "";
+  };
+
+  const handleInitializeTournament = async () => {
+    if (!adminToken) return;
+    let mappedTeams: { id: string; name: string }[] = [];
+    let autoGeneratedGroups: any[] = [];
+
+    if (csvTeams.length > 0) {
+      if (csvTeams.length !== 24)
+        return alert(
+          `Der Bille Cup erfordert exakt 24 Teams. CSV enthält: ${csvTeams.length}`,
+        );
+      mappedTeams = csvTeams.map((t) => ({ id: t.id, name: t.name }));
+      const uniqueGroupNames = Array.from(
+        new Set(csvTeams.map((t) => t.group)),
+      ).sort();
+      if (uniqueGroupNames.length !== 6)
+        return alert(
+          `Die CSV muss genau 6 unterschiedliche Gruppen enthalten. Gefunden: ${uniqueGroupNames.length}`,
+        );
+
+      autoGeneratedGroups = uniqueGroupNames.map((gName, idx) => ({
+        id: crypto.randomUUID(),
+        name: gName,
+        phase: "VORRUNDE",
+        fieldNumbers: [idx + 1],
+        teamIds: csvTeams.filter((t) => t.group === gName).map((t) => t.id),
+      }));
+    } else {
+      const parsedTeamNames = bulkTeamsText
+        .split("\n")
+        .map((n) => n.trim())
+        .filter((n) => n.length > 0);
+      if (parsedTeamNames.length !== 24)
+        return alert(
+          `Der Bille Cup erfordert exakt 24 Teams. Im Textfeld erfasst: ${parsedTeamNames.length}`,
+        );
+      mappedTeams = parsedTeamNames.map((name) => ({
+        id: crypto.randomUUID(),
+        name,
+      }));
+      autoGeneratedGroups = [
+        {
+          id: crypto.randomUUID(),
+          name: "Gruppe A",
+          phase: "VORRUNDE",
+          fieldNumbers: [1],
+          teamIds: mappedTeams.slice(0, 4).map((t) => t.id),
+        },
+        {
+          id: crypto.randomUUID(),
+          name: "Gruppe B",
+          phase: "VORRUNDE",
+          fieldNumbers: [2],
+          teamIds: mappedTeams.slice(4, 8).map((t) => t.id),
+        },
+        {
+          id: crypto.randomUUID(),
+          name: "Gruppe C",
+          phase: "VORRUNDE",
+          fieldNumbers: [3],
+          teamIds: mappedTeams.slice(8, 12).map((t) => t.id),
+        },
+        {
+          id: crypto.randomUUID(),
+          name: "Gruppe D",
+          phase: "VORRUNDE",
+          fieldNumbers: [4],
+          teamIds: mappedTeams.slice(12, 16).map((t) => t.id),
+        },
+        {
+          id: crypto.randomUUID(),
+          name: "Gruppe E",
+          phase: "VORRUNDE",
+          fieldNumbers: [5],
+          teamIds: mappedTeams.slice(16, 20).map((t) => t.id),
+        },
+        {
+          id: crypto.randomUUID(),
+          name: "Gruppe F",
+          phase: "VORRUNDE",
+          fieldNumbers: [6],
+          teamIds: mappedTeams.slice(20, 24).map((t) => t.id),
+        },
+      ];
+    }
+
+    if (!confirm(t.initWarning)) return;
+
+    autoGeneratedGroups.push(
+      {
+        id: crypto.randomUUID(),
+        name: "Gruppe G",
+        phase: "ZWISCHENRUNDE",
+        fieldNumbers: [1],
+        teamIds: [],
+      },
+      {
+        id: crypto.randomUUID(),
+        name: "Gruppe H",
+        phase: "ZWISCHENRUNDE",
+        fieldNumbers: [2],
+        teamIds: [],
+      },
+      {
+        id: crypto.randomUUID(),
+        name: "Gruppe I",
+        phase: "ZWISCHENRUNDE",
+        fieldNumbers: [3],
+        teamIds: [],
+      },
+      {
+        id: crypto.randomUUID(),
+        name: "Gruppe J",
+        phase: "ZWISCHENRUNDE",
+        fieldNumbers: [4],
+        teamIds: [],
+      },
+      {
+        id: crypto.randomUUID(),
+        name: "Gruppe K",
+        phase: "ZWISCHENRUNDE",
+        fieldNumbers: [5],
+        teamIds: [],
+      },
+      {
+        id: crypto.randomUUID(),
+        name: "Gruppe L",
+        phase: "ZWISCHENRUNDE",
+        fieldNumbers: [6],
+        teamIds: [],
+      },
+      {
+        id: crypto.randomUUID(),
+        name: "Goldrunde",
+        phase: "FINALRUNDE",
+        fieldNumbers: [1, 2, 3, 4, 5, 6],
+        teamIds: [],
+      },
+      {
+        id: crypto.randomUUID(),
+        name: "Silberrunde",
+        phase: "FINALRUNDE",
+        fieldNumbers: [1, 2, 3, 4, 5, 6],
+        teamIds: [],
+      },
     );
+
+    try {
+      const res = await fetch("/api/admin/initialize", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({
+          matchDuration: adminMatchDuration,
+          pauseDuration: adminPauseDuration,
+          vorrundeStartTime: new Date(adminVorrundeStart).toISOString(),
+          zwischenrundeStartTime: new Date(
+            adminZwischenrundeStart,
+          ).toISOString(),
+          finalrundeStartTime: new Date(adminFinalrundeStart).toISOString(),
+          teams: mappedTeams,
+          groups: autoGeneratedGroups,
+        }),
+      });
+      if (res.ok) {
+        alert("Turnier erfolgreich initialisiert!");
+        setCsvTeams([]);
+        setBulkTeamsText("");
+        refetch();
+      } else alert("Fehler bei der Initialisierung.");
+    } catch {
+      alert("Netzwerkfehler bei der Initialisierung.");
+    }
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -260,26 +867,75 @@ export default function App() {
     );
   };
 
-  const filteredGroups = groups.filter((group) => {
-    if (group.phase !== activeTab) return false;
+  const saveSeedingData = () => {
+    setIsSeedingModalOpen(false);
+  };
+
+  const getTeamName = (
+    teamId: string | null,
+    isHome: boolean,
+    matchNumber: number,
+  ) => {
+    if (!teamId)
+      return `${isHome ? t.placeholderHome : t.placeholderAway} (${matchNumber})`;
+    const team = teams.find((t) => t.id === teamId);
+    return team ? team.name : t.unknown;
+  };
+
+  const filteredGroups = groups.filter((g) => {
+    if (g.phase !== activeTab) return false;
     if (!selectedTeam) return true;
-    const inStandings = group.standings?.some(
-      (s) => s.team_id === selectedTeam,
+    return (
+      g.standings?.some((s) => s.team_id === selectedTeam) ||
+      matches.some(
+        (m) =>
+          m.group_id === g.id &&
+          (m.home_team_id === selectedTeam || m.away_team_id === selectedTeam),
+      )
     );
-    const inMatches = matches.some(
-      (m) =>
-        m.group_id === group.id &&
-        (m.home_team_id === selectedTeam || m.away_team_id === selectedTeam),
-    );
-    return inStandings || inMatches;
   });
 
-  if (isLoading) {
+  const TeamLogo = ({
+    teamId,
+    size = "w-8 h-8",
+  }: {
+    teamId: string | null;
+    size?: string;
+  }) => {
+    const team = teams.find((t) => t.id === teamId);
+    if (!team || !team.logo_path)
+      return (
+        <div
+          className={`${size} rounded-full bg-slate-200 dark:bg-slate-700 shrink-0`}
+        />
+      );
     return (
-      <div className="min-h-screen flex items-center justify-center font-bold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900">
-        <div className="flex flex-col items-center gap-4">
-          <Trophy className="w-12 h-12 text-yellow-400 animate-pulse" />
-          <span>{t.loading}</span>
+      <div
+        className={`${size} flex items-center justify-center bg-white rounded-full border shadow-sm shrink-0 overflow-hidden`}
+      >
+        <img
+          src={team.logo_path}
+          alt={team.name}
+          className="w-[90%] h-[90%] object-contain"
+        />
+      </div>
+    );
+  };
+
+  const formatTime = (isoString: string) => {
+    if (!isoString) return "--:--";
+    return new Date(isoString).toLocaleTimeString("de-DE", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  if (isLoading && teams.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
+        <div className="text-center animate-pulse">
+          <Trophy className="w-12 h-12 text-blue-600 mx-auto mb-4" />
+          <p className="font-medium">Turnierdaten werden geladen...</p>
         </div>
       </div>
     );
@@ -287,35 +943,25 @@ export default function App() {
 
   return (
     <div className={theme === "dark" ? "dark" : ""}>
-      {/* Globaler Hintergrund */}
-      <div className="fixed inset-0 z-0">
-        <div
-          className="absolute inset-0 bg-cover bg-center bg-fixed"
-          style={{ backgroundImage: `url(${bgImage})` }}
-        />
-        <div className="absolute inset-0 bg-slate-100/85 dark:bg-slate-900/90 backdrop-blur-md" />
-      </div>
-
-      <div className="relative z-10 min-h-screen flex flex-col text-slate-800 dark:text-slate-200 font-sans transition-colors duration-300">
-        {/* Header (Transparent & Icons rechtsbündig) */}
-        <header className="bg-white/60 dark:bg-slate-950/60 backdrop-blur-lg border-b border-gray-200/50 dark:border-slate-800/50 text-slate-800 dark:text-white p-3 sm:p-4 shadow-sm sticky top-0 z-20">
-          <div className="max-w-7xl mx-auto flex flex-row items-center justify-between gap-2 sm:gap-4">
-            <div className="flex items-center gap-2 sm:gap-4 overflow-hidden">
+      <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-sans transition-colors duration-300">
+        <header className="bg-blue-900 dark:bg-slate-950 text-white p-4 shadow-md sticky top-0 z-20">
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
               {tournamentLogo ? (
                 <img
                   src={tournamentLogo}
                   alt="Turnier Logo"
-                  className="h-10 sm:h-12 w-auto object-contain bg-white/80 rounded p-1 shadow-sm shrink-0"
+                  className="h-12 w-auto object-contain bg-white rounded p-1 shadow-sm"
                 />
               ) : (
-                <Trophy className="w-6 h-6 sm:w-8 sm:h-8 text-yellow-500 shrink-0" />
+                <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
+                  <Trophy className="w-6 h-6 text-yellow-400" />
+                  {t.title}
+                </h1>
               )}
-              <h1 className="text-base sm:text-2xl font-bold truncate">
-                {t.title}
-              </h1>
               {adminToken && (
                 <label
-                  className="cursor-pointer p-1.5 sm:p-2 bg-slate-200 dark:bg-slate-800 rounded-full hover:bg-slate-300 dark:hover:bg-slate-700 transition shrink-0"
+                  className="cursor-pointer p-2 bg-blue-800 rounded-full hover:bg-blue-700 transition"
                   title={t.uploadLogo}
                 >
                   <Upload className="w-4 h-4" />
@@ -328,45 +974,36 @@ export default function App() {
                 </label>
               )}
             </div>
-
-            {/* Icons forced to the right */}
-            <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-auto">
+            <div className="flex items-center gap-3">
               <button
                 onClick={toggleLanguage}
-                className="text-lg sm:text-xl leading-none w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center bg-slate-200 dark:bg-slate-800 rounded-full hover:bg-slate-300 dark:hover:bg-slate-700 transition shadow-inner"
-                title={
-                  language === "de"
-                    ? "Switch to English"
-                    : "Auf Deutsch wechseln"
-                }
+                className="w-10 h-10 flex items-center justify-center bg-blue-800 rounded-full hover:bg-blue-700 transition shadow-inner text-xl"
               >
                 {language === "de" ? "🇬🇧" : "🇩🇪"}
               </button>
-
               <button
                 onClick={toggleTheme}
-                className="p-1.5 sm:p-2 bg-slate-200 dark:bg-slate-800 rounded-full hover:bg-slate-300 dark:hover:bg-slate-700 transition"
+                className="p-2 bg-blue-800 rounded-full hover:bg-blue-700 transition"
               >
                 {theme === "light" ? (
-                  <Moon className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <Moon className="w-5 h-5" />
                 ) : (
-                  <Sun className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <Sun className="w-5 h-5" />
                 )}
               </button>
-
               {adminToken ? (
                 <button
-                  onClick={() => setAdminToken("")}
-                  className="text-xs sm:text-sm font-medium px-2 sm:px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-md transition"
+                  onClick={() => setAdminToken(null)}
+                  className="text-sm font-medium px-3 py-1.5 bg-red-600 hover:bg-red-700 rounded-md transition"
                 >
                   {t.logout}
                 </button>
               ) : (
                 <button
                   onClick={() => setShowLoginModal(true)}
-                  className="p-1.5 sm:p-2 bg-slate-200 dark:bg-slate-800 rounded-full hover:bg-slate-300 dark:hover:bg-slate-700 transition"
+                  className="p-2 bg-blue-800 rounded-full hover:bg-blue-700 transition"
                 >
-                  <LogIn className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <LogIn className="w-5 h-5" />
                 </button>
               )}
             </div>
@@ -374,107 +1011,240 @@ export default function App() {
         </header>
 
         <div className="flex-1">
-          {/* Filter */}
-          {activeTab !== "INFOS" && (
-            <div className="max-w-7xl mx-auto px-4 mt-6">
-              <div className="flex flex-col sm:flex-row justify-between items-end gap-4">
-                <div className="w-full sm:w-96">
-                  <label
-                    htmlFor="team-filter"
-                    className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2"
-                  >
-                    {t.filterLabel}
-                  </label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                    <select
-                      id="team-filter"
-                      value={selectedTeam}
-                      onChange={(e) => setSelectedTeam(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200/80 dark:border-slate-700/80 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md text-slate-800 dark:text-slate-200 shadow-sm appearance-none focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                    >
-                      <option value="">{t.allTeams}</option>
-                      {teams.map((team) => (
-                        <option key={team.id} value={team.id}>
-                          {team.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {adminToken && activeTab === "ZWISCHENRUNDE" && (
-                  <button
-                    onClick={() => setIsSeedingModalOpen(true)}
-                    className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm transition-colors font-semibold text-sm"
-                  >
-                    <Settings2 className="w-5 h-5" />
-                    {t.editSeeding}
-                  </button>
-                )}
+          {activeTab !== "INFOS" && activeTab !== "ADMIN" && (
+            <div className="max-w-7xl mx-auto px-4 mt-6 flex justify-between items-end gap-4">
+              <div className="w-full sm:w-96 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <select
+                  value={selectedTeam}
+                  onChange={(e) => setSelectedTeam(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 shadow-sm appearance-none outline-none"
+                >
+                  <option value="">{t.allTeams}</option>
+                  {teams.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden">
+                <button
+                  onClick={() => setViewMode("table")}
+                  className={`p-3 transition-colors ${viewMode === "table" ? "bg-blue-100 dark:bg-blue-900 text-blue-700" : "text-slate-500 hover:bg-slate-50"}`}
+                >
+                  <List className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => setViewMode("cards")}
+                  className={`p-3 transition-colors ${viewMode === "cards" ? "bg-blue-100 dark:bg-blue-900 text-blue-700" : "text-slate-500 hover:bg-slate-50"}`}
+                >
+                  <LayoutGrid className="w-5 h-5" />
+                </button>
               </div>
             </div>
           )}
 
-          {/* Navigation Tabs - Desktop */}
-          <nav className="hidden md:flex max-w-7xl mx-auto px-4 mt-6 overflow-x-auto">
-            <div className="flex bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-xl shadow-sm p-1 min-w-max border border-gray-200/50 dark:border-slate-700/50">
-              {["VORRUNDE", "ZWISCHENRUNDE", "FINALRUNDE", "INFOS"].map(
-                (tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`flex-1 px-4 py-2.5 text-sm font-bold rounded-lg transition-all ${
-                      activeTab === tab
-                        ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 shadow-sm"
-                        : "text-slate-600 dark:text-slate-400 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700"
-                    }`}
-                  >
-                    {t[tab.toLowerCase()]}
-                  </button>
-                ),
-              )}
+          <nav className="max-w-7xl mx-auto px-4 mt-6 overflow-x-auto">
+            <div className="flex bg-white dark:bg-slate-800 rounded-xl shadow-sm p-1 min-w-max">
+              {[
+                "VORRUNDE",
+                "ZWISCHENRUNDE",
+                "FINALRUNDE",
+                "INFOS",
+                ...(adminToken ? ["ADMIN"] : []),
+              ].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`flex-1 px-4 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === tab ? "bg-blue-100 dark:bg-blue-900 text-blue-700" : "text-slate-500 hover:text-slate-700"}`}
+                >
+                  {tab === "ADMIN" ? t.adminArea : t[tab.toLowerCase()]}
+                </button>
+              ))}
             </div>
           </nav>
 
-          {/* Navigation Dropdown - Mobile */}
-          <div className="md:hidden max-w-7xl mx-auto px-4 mt-6">
-            <select
-              value={activeTab}
-              onChange={(e) => setActiveTab(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200/80 dark:border-slate-700/80 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md text-slate-800 dark:text-slate-200 shadow-sm focus:ring-2 focus:ring-blue-500 font-bold outline-none"
-            >
-              {["VORRUNDE", "ZWISCHENRUNDE", "FINALRUNDE", "INFOS"].map(
-                (tab) => (
-                  <option key={tab} value={tab}>
-                    {t[tab.toLowerCase()]}
-                  </option>
-                ),
-              )}
-            </select>
-          </div>
-
           <main className="max-w-7xl mx-auto p-4 mt-2 space-y-6">
+            {activeTab === "ADMIN" && adminToken && (
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 p-6 max-w-4xl mx-auto space-y-10">
+                <section>
+                  <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+                    <Settings2 className="w-6 h-6 text-indigo-500" />
+                    {t.settings}
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        {t.matchDuration}
+                      </label>
+                      <input
+                        type="number"
+                        value={adminMatchDuration}
+                        onChange={(e) =>
+                          setAdminMatchDuration(parseInt(e.target.value))
+                        }
+                        className="w-full px-3 py-2 border rounded-lg dark:bg-slate-900 dark:border-slate-700"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        {t.pauseDuration}
+                      </label>
+                      <input
+                        type="number"
+                        value={adminPauseDuration}
+                        onChange={(e) =>
+                          setAdminPauseDuration(parseInt(e.target.value))
+                        }
+                        className="w-full px-3 py-2 border rounded-lg dark:bg-slate-900 dark:border-slate-700"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleSaveSettings}
+                    className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700"
+                  >
+                    <Save className="w-4 h-4" /> {t.save}
+                  </button>
+                </section>
+                <hr className="border-gray-200 dark:border-slate-700" />
+                <section>
+                  <h2 className="text-2xl font-bold mb-2 flex items-center gap-2 text-red-600">
+                    <Trophy className="w-6 h-6" />
+                    {t.initTournament}
+                  </h2>
+                  <p className="text-sm text-slate-500 mb-6">{t.initWarning}</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border dark:border-slate-700">
+                      <label className="block text-sm font-bold mb-2">
+                        {t.bulkTeamsLabel}
+                      </label>
+                      <div className="mb-4">
+                        <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer bg-white hover:bg-gray-50">
+                          <FileSpreadsheet className="w-6 h-6 text-gray-500 mb-2" />
+                          <span className="text-sm text-gray-500 font-semibold">
+                            {t.uploadCsvLabel}
+                          </span>
+                          <input
+                            type="file"
+                            accept=".csv"
+                            className="hidden"
+                            onChange={handleCsvUpload}
+                          />
+                        </label>
+                      </div>
+                      {csvTeams.length > 0 ? (
+                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="text-sm font-bold text-green-600">
+                              {t.csvSuccess} ({csvTeams.length})
+                            </span>
+                            <button
+                              onClick={() => setCsvTeams([])}
+                              className="text-xs font-semibold text-red-500 hover:underline"
+                            >
+                              {t.discardCsv}
+                            </button>
+                          </div>
+                          <table className="w-full text-xs text-left bg-white rounded overflow-hidden">
+                            <thead className="bg-slate-200">
+                              <tr>
+                                <th className="p-2">Team</th>
+                                <th className="p-2">Gruppe</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {csvTeams.map((ct, i) => (
+                                <tr key={i} className="border-b">
+                                  <td className="p-2 font-medium">{ct.name}</td>
+                                  <td className="p-2">{ct.group}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <textarea
+                          value={bulkTeamsText}
+                          onChange={(e) => setBulkTeamsText(e.target.value)}
+                          className="w-full h-48 px-3 py-2 border rounded-lg bg-white text-sm font-mono whitespace-pre"
+                          placeholder="Team 1&#10;Team 2&#10;..."
+                        />
+                      )}
+                    </div>
+                    <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border dark:border-slate-700 flex flex-col gap-4">
+                      <div>
+                        <label className="block text-sm font-bold mb-1">
+                          Startzeit {t.vorrunde}
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={adminVorrundeStart}
+                          onChange={(e) =>
+                            setAdminVorrundeStart(e.target.value)
+                          }
+                          className="w-full px-3 py-2 border rounded-lg bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-bold mb-1">
+                          Startzeit {t.zwischenrunde}
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={adminZwischenrundeStart}
+                          onChange={(e) =>
+                            setAdminZwischenrundeStart(e.target.value)
+                          }
+                          className="w-full px-3 py-2 border rounded-lg bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-bold mb-1">
+                          Startzeit {t.finalrunde}
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={adminFinalrundeStart}
+                          onChange={(e) =>
+                            setAdminFinalrundeStart(e.target.value)
+                          }
+                          className="w-full px-3 py-2 border rounded-lg bg-white"
+                        />
+                      </div>
+                      <button
+                        onClick={handleInitializeTournament}
+                        className="w-full mt-auto flex items-center justify-center gap-2 bg-red-600 text-white px-6 py-3 rounded-xl hover:bg-red-700 font-bold"
+                      >
+                        <Trophy className="w-5 h-5" /> Automatisches Setup
+                        starten
+                      </button>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            )}
+
             {activeTab === "INFOS" && (
-              <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-2xl shadow-sm border border-gray-200/50 dark:border-slate-700/50 p-6 max-w-4xl mx-auto">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 p-6 max-w-4xl mx-auto">
                 {adminToken && !isEditingInfo && (
                   <button
                     onClick={() => {
                       setEditInfoText(tournamentInfo);
                       setIsEditingInfo(true);
                     }}
-                    className="mb-4 flex items-center gap-2 text-blue-600 bg-blue-50 dark:bg-blue-900/30 px-4 py-2 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition"
+                    className="mb-4 flex items-center gap-2 text-blue-600 bg-blue-50 px-4 py-2 rounded-lg"
                   >
                     <Edit className="w-4 h-4" /> {t.edit}
                   </button>
                 )}
-
                 {isEditingInfo ? (
                   <div className="space-y-4">
                     <textarea
                       value={editInfoText}
                       onChange={(e) => setEditInfoText(e.target.value)}
-                      className="w-full h-64 p-4 border rounded-xl bg-gray-50 dark:bg-slate-900 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                      className="w-full h-64 p-4 border rounded-xl bg-gray-50 font-mono text-sm"
                     />
                     <div className="flex gap-3">
                       <button
@@ -482,13 +1252,13 @@ export default function App() {
                           setTournamentInfo(editInfoText);
                           setIsEditingInfo(false);
                         }}
-                        className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"
+                        className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg"
                       >
                         <Save className="w-4 h-4" /> {t.save}
                       </button>
                       <button
                         onClick={() => setIsEditingInfo(false)}
-                        className="flex items-center gap-2 bg-gray-200 dark:bg-slate-700 px-4 py-2 rounded-lg hover:bg-gray-300 dark:hover:bg-slate-600 transition"
+                        className="flex items-center gap-2 bg-gray-200 px-4 py-2 rounded-lg"
                       >
                         <X className="w-4 h-4" /> {t.cancel}
                       </button>
@@ -503,48 +1273,54 @@ export default function App() {
               </div>
             )}
 
-            {activeTab !== "INFOS" && (
+            {activeTab !== "INFOS" && activeTab !== "ADMIN" && (
               <div className="flex flex-col gap-8 w-full">
                 {filteredGroups.length === 0 ? (
-                  <div className="w-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-md p-8 rounded-2xl shadow-sm border border-gray-100/50 dark:border-slate-700/50 text-center text-gray-500 dark:text-gray-400">
+                  <div className="w-full bg-white dark:bg-slate-800 p-8 rounded-2xl text-center text-gray-500">
                     {t.noMatches}
                   </div>
                 ) : (
                   filteredGroups.map((group) => {
                     const isScheduleCollapsed = collapsedSchedules[group.id];
-                    const groupMatches = matches.filter((match) => {
-                      if (match.group_id !== group.id) return false;
-                      if (!selectedTeam) return true;
-                      return (
-                        match.home_team_id === selectedTeam ||
-                        match.away_team_id === selectedTeam
-                      );
-                    });
-
-                    const uniqueTimes = Array.from(
-                      new Set(groupMatches.map((m) => m.start_time)),
-                    ).sort();
+                    const groupMatches = matches.filter(
+                      (m) =>
+                        m.group_id === group.id &&
+                        (!selectedTeam ||
+                          m.home_team_id === selectedTeam ||
+                          m.away_team_id === selectedTeam),
+                    );
 
                     return (
                       <div
                         key={group.id}
-                        className="w-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-xl shadow-sm border border-gray-200/50 dark:border-slate-700/50 overflow-hidden flex flex-col"
+                        className="w-full bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden flex flex-col"
                       >
-                        <div className="bg-slate-100/80 dark:bg-slate-900/50 px-4 py-3 border-b dark:border-slate-700">
+                        <div className="bg-slate-100 dark:bg-slate-900/50 px-4 py-3 border-b dark:border-slate-700 flex justify-between items-center">
                           <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
                             {group.name}
                           </h2>
+                          {adminToken && activeTab === "ZWISCHENRUNDE" && (
+                            <button
+                              onClick={() => setIsSeedingModalOpen(true)}
+                              className="text-sm font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                            >
+                              <Settings2 className="w-4 h-4" /> {t.editSeeding}
+                            </button>
+                          )}
                         </div>
-
                         <GroupTable
                           group={group}
                           teams={teams}
                           selectedTeam={selectedTeam}
                         />
-
                         <button
-                          onClick={() => toggleSchedule(group.id)}
-                          className="w-full flex justify-between items-center px-4 py-3 bg-slate-50/80 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors border-t border-b dark:border-slate-700"
+                          onClick={() =>
+                            setCollapsedSchedules((p) => ({
+                              ...p,
+                              [group.id]: !p[group.id],
+                            }))
+                          }
+                          className="w-full flex justify-between items-center px-4 py-3 bg-slate-50 dark:bg-slate-800/80 border-t border-b dark:border-slate-700"
                         >
                           <span className="font-bold text-sm text-slate-600 dark:text-slate-300">
                             {t.matches} {group.name}
@@ -557,29 +1333,101 @@ export default function App() {
                             )}
                           </div>
                         </button>
-
                         {!isScheduleCollapsed && (
-                          <div className="bg-slate-50/40 dark:bg-slate-900/20 p-4 flex-1 w-full">
-                            {groupMatches.length === 0 ? (
-                              <p className="text-sm text-slate-500 dark:text-slate-400 italic text-center">
-                                {t.noMatches}
-                              </p>
-                            ) : (
-                              uniqueTimes.map((time) => {
-                                const matchesAtTime = groupMatches.filter(
-                                  (m) => m.start_time === time,
-                                );
-                                return (
-                                  <TimeSlot
-                                    key={time}
-                                    time={time}
-                                    matches={matchesAtTime}
+                          <div className="bg-slate-50/50 dark:bg-slate-900/20 p-4 w-full">
+                            {viewMode === "cards" ? (
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {groupMatches.map((match) => (
+                                  <MatchCard
+                                    key={match.id}
+                                    match={match}
+                                    homeTeam={teams.find(
+                                      (t) => t.id === match.home_team_id,
+                                    )}
+                                    awayTeam={teams.find(
+                                      (t) => t.id === match.away_team_id,
+                                    )}
                                     isAdmin={!!adminToken}
-                                    onStartRound={handleStartRound}
                                     onUpdateResult={handleUpdateResult}
                                   />
-                                );
-                              })
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 w-full">
+                                <table className="w-full text-sm text-left border-collapse min-w-[600px]">
+                                  <thead className="text-xs font-bold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-b border-slate-300 dark:border-slate-600">
+                                    <tr>
+                                      <th className="px-3 py-3 text-center w-10">
+                                        {t.nr}
+                                      </th>
+                                      <th className="px-3 py-3 text-center w-20">
+                                        {t.beginn}
+                                      </th>
+                                      <th
+                                        className="px-4 py-3 text-center"
+                                        colSpan={4}
+                                      >
+                                        {t.spiel}
+                                      </th>
+                                      <th className="px-4 py-3 text-center w-24">
+                                        {t.ergebnis}
+                                      </th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
+                                    {groupMatches.map((match) => (
+                                      <tr
+                                        key={match.id}
+                                        className={`hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${match.status === "LIVE" ? "bg-green-50/30" : ""}`}
+                                      >
+                                        <td className="px-3 py-3 text-center font-semibold text-slate-700 dark:text-slate-300">
+                                          {match.match_number}
+                                        </td>
+                                        <td className="px-3 py-3 text-center font-medium text-slate-600 dark:text-slate-400">
+                                          {formatTime(match.start_time)}
+                                        </td>
+                                        <td className="px-2 py-2 w-10 text-right">
+                                          <TeamLogo
+                                            teamId={match.home_team_id}
+                                            size="w-7 h-7"
+                                          />
+                                        </td>
+                                        <td className="px-2 py-3 text-right font-semibold w-[35%]">
+                                          {getTeamName(
+                                            match.home_team_id,
+                                            true,
+                                            match.match_number,
+                                          )}
+                                        </td>
+                                        <td className="px-2 py-3 text-left font-semibold w-[35%]">
+                                          {getTeamName(
+                                            match.away_team_id,
+                                            false,
+                                            match.match_number,
+                                          )}
+                                        </td>
+                                        <td className="px-2 py-2 w-10 text-left">
+                                          <TeamLogo
+                                            teamId={match.away_team_id}
+                                            size="w-7 h-7"
+                                          />
+                                        </td>
+                                        <td className="px-4 py-3 text-center font-bold text-slate-800 dark:text-slate-100">
+                                          {match.status === "BEENDET" ? (
+                                            `${match.goals_home} : ${match.goals_away}`
+                                          ) : match.status === "LIVE" ? (
+                                            <span className="text-green-600 animate-pulse">
+                                              LIVE
+                                            </span>
+                                          ) : (
+                                            "- : -"
+                                          )}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
                             )}
                           </div>
                         )}
@@ -592,7 +1440,6 @@ export default function App() {
           </main>
         </div>
 
-        {/* Modal: Setzliste bearbeiten */}
         {isSeedingModalOpen && adminToken && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-3xl my-8 overflow-hidden flex flex-col max-h-full">
@@ -622,60 +1469,36 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
-                      {seedingData.map((item) => {
-                        const teamObj = teams.find(
-                          (t) => t.id === item.team_id,
-                        );
-                        return (
-                          <tr
-                            key={item.team_id}
-                            className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
-                          >
-                            <td className="px-4 py-3 text-center font-bold text-slate-700 dark:text-slate-300">
-                              {item.vorrunden_platz}
-                            </td>
-                            <td className="px-4 py-3 flex items-center gap-3 font-medium text-slate-800 dark:text-slate-200">
-                              <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden flex items-center justify-center shrink-0 border border-slate-300 dark:border-slate-600">
-                                {teamObj?.logo_path ? (
-                                  <img
-                                    src={teamObj.logo_path}
-                                    alt={teamObj.name}
-                                    className="w-[90%] h-[90%] object-contain"
-                                  />
-                                ) : (
-                                  <div className="w-full h-full bg-slate-200 dark:bg-slate-700" />
-                                )}
-                              </div>
-                              {teamObj ? teamObj.name : item.team_id}
-                            </td>
-                            <td className="px-4 py-3">
-                              <select
-                                value={item.assigned_group}
-                                onChange={(e) =>
-                                  updateSeedingGroup(
-                                    item.team_id,
-                                    e.target.value,
-                                  )
-                                }
-                                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-semibold transition-all cursor-pointer"
-                              >
-                                {[
-                                  "Gruppe G",
-                                  "Gruppe H",
-                                  "Gruppe I",
-                                  "Gruppe J",
-                                  "Gruppe K",
-                                  "Gruppe L",
-                                ].map((groupName) => (
-                                  <option key={groupName} value={groupName}>
-                                    {groupName}
-                                  </option>
-                                ))}
-                              </select>
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {seedingData.map((item) => (
+                        <tr
+                          key={item.team_id}
+                          className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+                        >
+                          <td className="px-4 py-3 text-center font-bold text-slate-700 dark:text-slate-300">
+                            {item.vorrunden_platz}
+                          </td>
+                          <td className="px-4 py-3 flex items-center gap-3 font-medium text-slate-800 dark:text-slate-200">
+                            <TeamLogo teamId={item.team_id} size="w-8 h-8" />
+                            {getTeamName(item.team_id, true, 0)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <select
+                              value={item.assigned_group}
+                              onChange={(e) =>
+                                updateSeedingGroup(item.team_id, e.target.value)
+                              }
+                              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-semibold transition-all cursor-pointer"
+                            >
+                              <option value="Gruppe G">Gruppe G</option>
+                              <option value="Gruppe H">Gruppe H</option>
+                              <option value="Gruppe I">Gruppe I</option>
+                              <option value="Gruppe J">Gruppe J</option>
+                              <option value="Gruppe K">Gruppe K</option>
+                              <option value="Gruppe L">Gruppe L</option>
+                            </select>
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
@@ -689,7 +1512,7 @@ export default function App() {
                   {t.cancel}
                 </button>
                 <button
-                  onClick={() => setIsSeedingModalOpen(false)}
+                  onClick={saveSeedingData}
                   className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold shadow-sm transition-colors flex items-center gap-2"
                 >
                   <Save className="w-4 h-4" />
@@ -700,61 +1523,9 @@ export default function App() {
           </div>
         )}
 
-        {/* Footer für Ausrichter & Sponsoren (Mobile optimiert) */}
-        <footer className="mt-12 bg-white/70 dark:bg-slate-900/80 backdrop-blur-lg border-t border-gray-200/50 dark:border-slate-700/50 py-10">
-          <div className="max-w-7xl mx-auto px-4 flex flex-col md:grid md:grid-cols-2 gap-10">
-            {/* Sponsoren: Mobil oben (order-1), Desktop rechts (md:order-2) */}
-            <div className="order-1 md:order-2">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-lg text-slate-800 dark:text-slate-100">
-                  {t.sponsors}
-                </h3>
-                {adminToken && (
-                  <label className="cursor-pointer flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 transition">
-                    <Plus className="w-4 h-4" /> {t.addSponsor}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleSponsorUpload}
-                    />
-                  </label>
-                )}
-              </div>
-
-              {/* Mobil 1-spaltig, ab sm 2-spaltig, ab lg 3-spaltig */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-center">
-                {sponsors.map((img, idx) => (
-                  <div
-                    key={idx}
-                    className="relative group bg-slate-50/80 dark:bg-slate-900/80 rounded-lg p-3 border border-gray-100/50 dark:border-slate-700/50 aspect-video flex items-center justify-center backdrop-blur-sm shadow-sm"
-                  >
-                    <img
-                      src={img}
-                      alt={`Sponsor ${idx + 1}`}
-                      className="max-w-full max-h-full object-contain"
-                    />
-                    {adminToken && (
-                      <button
-                        onClick={() => removeSponsor(idx)}
-                        className="absolute -top-2 -right-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
-                        title={t.remove}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-              {sponsors.length === 0 && (
-                <p className="text-sm text-slate-500 dark:text-slate-400 italic">
-                  Noch keine Sponsoren hinterlegt.
-                </p>
-              )}
-            </div>
-
-            {/* Ausrichter: Mobil unten (order-2), Desktop links (md:order-1) */}
-            <div className="order-2 md:order-1">
+        <footer className="mt-12 bg-white dark:bg-slate-800 border-t border-gray-200 dark:border-slate-700 py-10">
+          <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-10">
+            <div>
               <h3 className="font-bold text-lg mb-4 text-slate-800 dark:text-slate-100">
                 {t.organizer}
               </h3>
@@ -796,21 +1567,68 @@ export default function App() {
                   </div>
                 </div>
               ) : (
-                <div className="text-slate-600 dark:text-slate-400 whitespace-pre-wrap leading-relaxed font-medium">
+                <div className="text-slate-600 dark:text-slate-400 whitespace-pre-wrap leading-relaxed">
                   {organizerInfo}
                 </div>
+              )}
+            </div>
+
+            <div>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-bold text-lg text-slate-800 dark:text-slate-100">
+                  {t.sponsors}
+                </h3>
+                {adminToken && (
+                  <label className="cursor-pointer flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 transition">
+                    <Plus className="w-4 h-4" /> {t.addSponsor}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleSponsorUpload}
+                    />
+                  </label>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 items-center">
+                {sponsors.map((img, idx) => (
+                  <div
+                    key={idx}
+                    className="relative group bg-slate-50 dark:bg-slate-900 rounded-lg p-3 border border-gray-100 dark:border-slate-700 aspect-video flex items-center justify-center"
+                  >
+                    <img
+                      src={img}
+                      alt={`Sponsor ${idx + 1}`}
+                      className="max-w-full max-h-full object-contain"
+                    />
+                    {adminToken && (
+                      <button
+                        onClick={() => removeSponsor(idx)}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                        title={t.remove}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {sponsors.length === 0 && (
+                <p className="text-sm text-slate-500 dark:text-slate-400 italic">
+                  Noch keine Sponsoren hinterlegt.
+                </p>
               )}
             </div>
           </div>
         </footer>
 
-        {/* Login Modal */}
         <Modal
           isOpen={showLoginModal}
           onClose={() => setShowLoginModal(false)}
           title={t.login}
         >
-          <form onSubmit={handleLogin} className="p-6 space-y-4">
+          <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-1 dark:text-gray-300">
                 {t.username}
@@ -821,7 +1639,7 @@ export default function App() {
                 onChange={(e) =>
                   setLoginForm({ ...loginForm, username: e.target.value })
                 }
-                className="w-full px-3 py-2 border rounded-lg bg-gray-50 dark:bg-slate-900 dark:border-slate-700 focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border rounded-lg bg-gray-50 dark:bg-slate-900 focus:ring-2 focus:ring-blue-500"
                 required
               />
             </div>
@@ -835,13 +1653,13 @@ export default function App() {
                 onChange={(e) =>
                   setLoginForm({ ...loginForm, password: e.target.value })
                 }
-                className="w-full px-3 py-2 border rounded-lg bg-gray-50 dark:bg-slate-900 dark:border-slate-700 focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border rounded-lg bg-gray-50 dark:bg-slate-900 focus:ring-2 focus:ring-blue-500"
                 required
               />
             </div>
             <button
               type="submit"
-              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition"
+              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition mt-2"
             >
               {t.login}
             </button>
