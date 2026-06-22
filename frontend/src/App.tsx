@@ -100,7 +100,9 @@ export default function App() {
   const [selectedTeam, setSelectedTeam] = useState("");
   const [viewMode, setViewMode] = useState<"table" | "cards">("cards");
 
-  const [adminToken, setAdminToken] = useState<string | null>(null);
+  const [adminToken, setAdminToken] = useState<string | null>(() =>
+    localStorage.getItem("adminToken"),
+  );
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
 
@@ -115,7 +117,6 @@ export default function App() {
     "TSG Bergedorf\nBilltalstadion\n21029 Hamburg",
   );
   const [isEditingOrganizer, setIsEditingOrganizer] = useState(false);
-  const [editOrganizerText, setEditOrganizerText] = useState("");
   const [sponsors, setSponsors] = useState<string[]>([
     "https://placehold.co/300x150/ffffff/000000?text=Sponsor+1",
   ]);
@@ -155,6 +156,7 @@ export default function App() {
       if (res.ok) {
         const data = await res.json();
         setAdminToken(data.token);
+        localStorage.setItem("adminToken", data.token);
         setShowLoginModal(false);
         setLoginForm({ username: "", password: "" });
       } else alert("Login fehlgeschlagen.");
@@ -344,7 +346,10 @@ export default function App() {
               </button>
               {adminToken ? (
                 <button
-                  onClick={() => setAdminToken(null)}
+                  onClick={() => {
+                    setAdminToken(null);
+                    localStorage.removeItem("adminToken");
+                  }}
                   className="text-sm font-medium px-3 py-1.5 bg-red-600 hover:bg-red-700 rounded-md transition"
                 >
                   {t.logout}
@@ -622,7 +627,6 @@ export default function App() {
               {adminToken && !isEditingOrganizer && (
                 <button
                   onClick={() => {
-                    setEditOrganizerText(organizerInfo);
                     setIsEditingOrganizer(true);
                   }}
                   className="mb-4 flex items-center gap-2 text-blue-600 text-sm hover:underline"
@@ -634,7 +638,7 @@ export default function App() {
               {isEditingOrganizer ? (
                 <div className="mt-2">
                   <MarkdownEditor
-                    initialValue={editOrganizerText}
+                    initialValue={organizerInfo}
                     onSave={(val) => {
                       setOrganizerInfo(val);
                       setIsEditingOrganizer(false);
