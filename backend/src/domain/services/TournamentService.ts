@@ -353,13 +353,20 @@ export class TournamentService {
     const playedMatches = matchesInGroup.filter(
       (m) => m.extractSnapshot().status === "BEENDET",
     );
-    return playedMatches.length >= 36;
+    return playedMatches.length >= matchesInGroup.length;
   }
 
   public isCurrentRoundComplete(matchesInGroup: Match[]): boolean {
-    const pendingMatches = matchesInGroup.filter(
+    const assignedMatches = matchesInGroup.filter((m) => {
+      const snap = m.extractSnapshot();
+      return snap.home_team_id !== null && snap.away_team_id !== null;
+    });
+
+    if (assignedMatches.length === 0) return false;
+
+    const pendingAssigned = assignedMatches.filter(
       (m) => m.extractSnapshot().status !== "BEENDET",
     );
-    return pendingMatches.length === 0 && matchesInGroup.length > 0;
+    return pendingAssigned.length === 0;
   }
 }

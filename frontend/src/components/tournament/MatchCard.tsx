@@ -10,6 +10,7 @@ interface MatchCardProps {
   awayTeam?: Team;
   isAdmin: boolean;
   onUpdateResult: (id: string, h: number, a: number) => void;
+  fieldNumber?: number | string;
   t: any;
 }
 
@@ -20,6 +21,7 @@ export function MatchCard({
   awayTeam,
   isAdmin,
   onUpdateResult,
+  fieldNumber,
   t,
 }: MatchCardProps) {
   const [editMode, setEditMode] = useState(false);
@@ -57,7 +59,7 @@ export function MatchCard({
 
   const formatTime = (iso: string) => {
     if (!iso) return "--:--";
-    return new Date(iso).toLocaleTimeString("de-DE", {
+    return new Date(iso).toLocaleTimeString(t.localeCode || "de-DE", {
       hour: "2-digit",
       minute: "2-digit",
     });
@@ -81,7 +83,7 @@ export function MatchCard({
         </span>
         <span className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1">
           <Clock className="w-3 h-3" /> {formatTime(match.start_time)} •{" "}
-          {t.field} {group?.field_numbers?.[0] || "-"}
+          {t.field} {fieldNumber || group?.field_numbers?.[0] || "-"}
         </span>
       </div>
 

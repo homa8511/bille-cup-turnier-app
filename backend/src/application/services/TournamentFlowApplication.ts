@@ -24,18 +24,16 @@ export class TournamentFlowApplication {
 
   // Diese Methode verarbeitet den initialen Payload zur Anlage der Vorrunde.
   public async initializeTournament(payload: any): Promise<void> {
-    const matchesData: any[] = [];
-    let globalMatchCounter = 1;
+    let matchesData: any[] = [];
+    const durationMs = payload.matchDuration * 60000;
+    const pauseMs = payload.pauseDuration * 60000;
 
     for (const group of payload.groups) {
       if (group.phase === "VORRUNDE" && group.teamIds.length > 1) {
         const pairings = this.tournamentService.generateRoundRobinPairings(
           group.teamIds,
         );
-
         let currentTime = new Date(payload.vorrundeStartTime).getTime();
-        const durationMs = payload.matchDuration * 60000;
-        const pauseMs = payload.pauseDuration * 60000;
 
         for (const pairing of pairings) {
           const startTimeIso = new Date(currentTime).toISOString();
@@ -43,14 +41,65 @@ export class TournamentFlowApplication {
             group.id,
             pairing.home,
             pairing.away,
-            globalMatchCounter++,
+            0,
             startTimeIso,
           );
           matchesData.push(newMatch.extractSnapshot());
           currentTime += durationMs + pauseMs;
         }
+      } else if (group.phase === "ZWISCHENRUNDE") {
+        let currentTime = new Date(payload.zwischenrundeStartTime).getTime();
+        for (let i = 1; i <= 6; i++) {
+          const startTimeIso = new Date(currentTime).toISOString();
+          const newMatch = MatchFactory.createPlaceholderMatch(
+            group.id,
+            0,
+            `ZR Heim`,
+            `ZR Gast`,
+            startTimeIso,
+          );
+          matchesData.push(newMatch.extractSnapshot());
+          currentTime += durationMs + pauseMs;
+        }
+      } else if (group.phase === "FINALRUNDE") {
+        let currentTime = new Date(payload.finalrundeStartTime).getTime();
+        if (group.name === "Silberrunde") {
+          currentTime += durationMs + pauseMs;
+        }
+        for (let round = 0; round < 4; round++) {
+          const startTimeIso = new Date(currentTime).toISOString();
+          for (let i = 1; i <= 6; i++) {
+            const newMatch = MatchFactory.createPlaceholderMatch(
+              group.id,
+              0,
+              `Finale Heim`,
+              `Finale Gast`,
+              startTimeIso,
+            );
+            matchesData.push(newMatch.extractSnapshot());
+          }
+          currentTime += 2 * (durationMs + pauseMs);
+        }
       }
     }
+
+    matchesData.sort((a, b) => {
+      const timeDiff =
+        new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
+      if (timeDiff !== 0) return timeDiff;
+      const groupA = payload.groups.find((g: any) => g.id === a.group_id);
+      const groupB = payload.groups.find((g: any) => g.id === b.group_id);
+      const fieldA = groupA?.fieldNumbers?.[0] || 0;
+      const fieldB = groupB?.fieldNumbers?.[0] || 0;
+      if (fieldA !== fieldB) return fieldA - fieldB;
+      return (groupA?.name || "").localeCompare(groupB?.name || "");
+    });
+
+    let globalMatchCounter = 1;
+    matchesData = matchesData.map((m) => ({
+      ...m,
+      match_number: globalMatchCounter++,
+    }));
 
     await this.initializationRepository.executeInitialization(
       payload,
@@ -80,11 +129,8 @@ export class TournamentFlowApplication {
   ): Promise<void> {
     await this.groupRepository.updateAssignedGroups(approvedSeeding);
 
-    const config = await this.settingsRepository.fetchConfig();
     const groups =
       await this.groupRepository.fetchGroupsByPhase("ZWISCHENRUNDE");
-    const matchesData: any[] = [];
-    let matchCounter = (await this.matchRepository.fetchMaxMatchNumber()) + 1;
 
     for (const group of groups) {
       const teamIds = await this.groupRepository.fetchTeamsByGroup(group.id);
@@ -92,26 +138,23 @@ export class TournamentFlowApplication {
         teamIds.map((t) => t.id),
       );
 
-      let currentTime = new Date(startTimeIso).getTime();
-      const durationMs = config.match_duration_minutes * 60000;
-      const pauseMs = config.pause_duration_minutes * 60000;
+      const placeholdersData = await this.matchRepository.fetchMatchesByGroup(
+        group.id,
+      );
+      placeholdersData.sort(
+        (a: any, b: any) => Number(a.match_number) - Number(b.match_number),
+      );
 
-      for (const pairing of pairings) {
-        const startIso = new Date(currentTime).toISOString();
-        const newMatch = MatchFactory.createNewMatch(
-          group.id,
-          pairing.home,
-          pairing.away,
-          matchCounter++,
-          startIso,
-        );
-        matchesData.push(newMatch.extractSnapshot());
-        currentTime += durationMs + pauseMs;
+      for (let i = 0; i < pairings.length; i++) {
+        if (placeholdersData[i]) {
+          await this.matchRepository.updateMatchTeams(
+            placeholdersData[i].id,
+            pairings[i].home,
+            pairings[i].away,
+          );
+        }
       }
     }
-
-    await this.matchRepository.insertMassMatches(matchesData);
-    await this.matchRepository.recalculateMatchNumbers();
   }
 
   // Diese Methode überführt das Turnier nach der Zwischenrunde in die Finalrunde.
@@ -175,23 +218,22 @@ export class TournamentFlowApplication {
         "Es konnten keine überschneidungsfreien Paarungen generiert werden.",
       );
 
-    const insertedMatchesData =
-      await this.matchRepository.insertGeneratedPairingsAndReturn(
-        groupId,
-        pairings,
-      );
-    const insertedMatches = insertedMatchesData.map((m) =>
-      MatchFactory.createFromData(m as any),
+    const unassignedMatches = currentMatchesData.filter(
+      (m: any) => !m.home_team_id && !m.away_team_id,
+    );
+    unassignedMatches.sort(
+      (a: any, b: any) => Number(a.match_number) - Number(b.match_number),
     );
 
-    const config = await this.settingsRepository.fetchConfig();
-    const scheduleUpdates = this.tournamentService.scheduleSingleFinalRound(
-      insertedMatches,
-      startTimeIso,
-      config.match_duration_minutes,
-    );
-    await this.matchRepository.updateMatchTimes(scheduleUpdates);
-    await this.matchRepository.recalculateMatchNumbers();
+    for (let i = 0; i < pairings.length; i++) {
+      if (unassignedMatches[i]) {
+        await this.matchRepository.updateMatchTeams(
+          unassignedMatches[i].id,
+          pairings[i].home.team_id,
+          pairings[i].away.team_id,
+        );
+      }
+    }
   }
 
   // Diese Methode speichert ein Spielergebnis und prüft auf Folgeschritte.

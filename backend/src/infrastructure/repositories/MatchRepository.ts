@@ -1,8 +1,10 @@
-import { MatchData } from "../../domain/factories/TournamentFactories";
+import {
+  MatchData,
+  MatchFactory,
+} from "../../domain/factories/TournamentFactories";
 import { ScheduleUpdate, SwissPairing } from "../../domain/models/Tournament";
 import { PostgresClient } from "../database/PostgresClient";
 
-// Diese Klasse verwaltet alle Datenbankzugriffe für die Spiele.
 export class MatchRepository {
   private db: PostgresClient;
 
@@ -10,105 +12,40 @@ export class MatchRepository {
     this.db = PostgresClient.getInstance();
   }
 
-  // Diese Methode ermittelt die höchste vergebene Spielnummer im System.
-  public async fetchMaxMatchNumber(): Promise<number> {
-    const query = "SELECT MAX(match_number) as max_num FROM matches";
-    const result = await this.db.query(query);
-    return result.rows[0].max_num || 0;
-  }
-
-  // Diese Methode speichert eine große Menge an Spielen auf einmal.
-  public async insertMassMatches(matches: any[]): Promise<void> {
-    for (const match of matches) {
-      await this.db.query(
-        `INSERT INTO matches (id, group_id, home_team_id, away_team_id, match_number, status, start_time, end_time) 
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [
-          match.id,
-          match.group_id,
-          match.home_team_id,
-          match.away_team_id,
-          match.match_number,
-          match.status,
-          match.start_time,
-          match.end_time,
-        ],
-      );
-    }
-  }
-
-  // Diese Methode holt alle abgeschlossenen Spiele einer bestimmten Gruppe.
-  public async fetchCompletedMatchesByGroup(
-    groupId: string,
-  ): Promise<MatchData[]> {
-    const query = "SELECT * FROM matches WHERE group_id = $1 AND status = $2";
-    const result = await this.db.query(query, [groupId, "BEENDET"]);
+  public async fetchAllMatches(): Promise<MatchData[]> {
+    const result = await this.db.query(
+      "SELECT * FROM matches ORDER BY match_number ASC",
+    );
     return result.rows as MatchData[];
   }
 
-  // Diese Methode holt alle Spiele einer bestimmten Gruppe.
-  public async fetchMatchesByGroup(groupId: string): Promise<MatchData[]> {
-    const query =
-      "SELECT * FROM matches WHERE group_id = $1 ORDER BY start_time ASC";
-    const result = await this.db.query(query, [groupId]);
-    return result.rows as MatchData[];
-  }
-
-  // Diese Methode holt alle Spiele einer bestimmten Turnierphase.
   public async fetchMatchesByPhase(phase: string): Promise<MatchData[]> {
     const query = `
-            SELECT m.* FROM matches m 
-            JOIN groups g ON m.group_id = g.id 
-            WHERE g.phase = $1 ORDER BY m.start_time ASC
+            SELECT m.* FROM matches m
+            JOIN groups g ON m.group_id = g.id
+            WHERE g.phase = $1
+            ORDER BY m.match_number ASC
         `;
     const result = await this.db.query(query, [phase]);
     return result.rows as MatchData[];
   }
 
-  // Diese Methode generiert eine Matrix aller bisherigen Begegnungen.
-  public async fetchCompleteMatchHistory(): Promise<Record<string, string[]>> {
+  public async fetchMatchesByGroup(groupId: string): Promise<MatchData[]> {
     const query =
-      "SELECT home_team_id, away_team_id FROM matches WHERE home_team_id IS NOT NULL AND away_team_id IS NOT NULL";
-    const result = await this.db.query(query);
-    const history: Record<string, string[]> = {};
-
-    result.rows.forEach((row: any) => {
-      if (!history[row.home_team_id]) history[row.home_team_id] = [];
-      if (!history[row.away_team_id]) history[row.away_team_id] = [];
-      history[row.home_team_id].push(row.away_team_id);
-      history[row.away_team_id].push(row.home_team_id);
-    });
-
-    return history;
+      "SELECT * FROM matches WHERE group_id = $1 ORDER BY match_number ASC";
+    const result = await this.db.query(query, [groupId]);
+    return result.rows as MatchData[];
   }
 
-  // Diese Methode speichert neue Paarungen für das Schweizer System und gibt diese zurück.
-  public async insertGeneratedPairingsAndReturn(
+  public async fetchCompletedMatchesByGroup(
     groupId: string,
-    pairings: SwissPairing[],
   ): Promise<MatchData[]> {
-    const insertedMatches: MatchData[] = [];
-    let currentMatchNumber = (await this.fetchMaxMatchNumber()) + 1;
-
-    for (const pair of pairings) {
-      const query = `
-                INSERT INTO matches (group_id, home_team_id, away_team_id, match_number, status) 
-                VALUES ($1, $2, $3, $4, $5) RETURNING *
-            `;
-      const result = await this.db.query(query, [
-        groupId,
-        pair.home.team_id,
-        pair.away.team_id,
-        currentMatchNumber++,
-        "GEPLANT",
-      ]);
-      insertedMatches.push(result.rows[0] as MatchData);
-    }
-
-    return insertedMatches;
+    const query =
+      "SELECT * FROM matches WHERE group_id = $1 AND status = $2 ORDER BY match_number ASC";
+    const result = await this.db.query(query, [groupId, "BEENDET"]);
+    return result.rows as MatchData[];
   }
 
-  // Diese Methode aktualisiert ein Spielergebnis in der Datenbank.
   public async updateMatchResult(
     matchId: string,
     goalsHome: number,
@@ -128,33 +65,116 @@ export class MatchRepository {
     return (result.rows[0] as MatchData) || null;
   }
 
-  // Diese Methode berechnet die fortlaufenden Spielnummern anhand der Anstoßzeiten global neu.
-  public async recalculateMatchNumbers(): Promise<void> {
+  public async updateMatchTeams(
+    matchId: string,
+    homeTeamId: string,
+    awayTeamId: string,
+  ): Promise<void> {
     const query = `
-            WITH NumberedMatches AS (
-                SELECT m.id, ROW_NUMBER() OVER (ORDER BY m.start_time ASC, g.name ASC) as new_number
-                FROM matches m
-                JOIN groups g ON m.group_id = g.id
-            )
-            UPDATE matches m
-            SET match_number = nm.new_number
-            FROM NumberedMatches nm
-            WHERE m.id = nm.id
+            UPDATE matches 
+            SET home_team_id = $1, away_team_id = $2, home_placeholder = NULL, away_placeholder = NULL 
+            WHERE id = $3
         `;
-    await this.db.query(query);
+    await this.db.query(query, [homeTeamId, awayTeamId, matchId]);
   }
 
-  // Diese Methode speichert die neuen Anstoßzeiten für mehrere Spiele gleichzeitig.
+  public async deleteMatch(matchId: string): Promise<void> {
+    await this.db.query("DELETE FROM matches WHERE id = $1", [matchId]);
+  }
+
+  public async insertGeneratedPairingsAndReturn(
+    groupId: string,
+    pairings: SwissPairing[],
+  ): Promise<MatchData[]> {
+    const inserted: MatchData[] = [];
+    for (const pairing of pairings) {
+      const newMatch = MatchFactory.createNewMatch(
+        groupId,
+        pairing.home.team_id,
+        pairing.away.team_id,
+        0,
+        new Date().toISOString(),
+      );
+      const snap = newMatch.extractSnapshot();
+      const query = `
+                INSERT INTO matches (id, match_number, home_team_id, away_team_id, group_id, start_time, status)
+                VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *
+            `;
+      const result = await this.db.query(query, [
+        snap.id,
+        snap.match_number,
+        snap.home_team_id,
+        snap.away_team_id,
+        snap.group_id,
+        snap.start_time,
+        snap.status,
+      ]);
+      inserted.push(result.rows[0] as MatchData);
+    }
+    return inserted;
+  }
+
+  public async insertMatch(matchData: any): Promise<void> {
+    const query = `
+            INSERT INTO matches (id, match_number, home_team_id, away_team_id, group_id, start_time, status)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `;
+    await this.db.query(query, [
+      matchData.id,
+      matchData.match_number,
+      matchData.home_team_id,
+      matchData.away_team_id,
+      matchData.group_id,
+      matchData.start_time,
+      matchData.status,
+    ]);
+  }
+
   public async updateMatchTimes(updates: ScheduleUpdate[]): Promise<void> {
     for (const update of updates) {
       await this.db.query(
         "UPDATE matches SET start_time = $1, end_time = $2 WHERE id = $3",
-        [
-          update.start_time.toISOString(),
-          update.end_time.toISOString(),
-          update.match_id,
-        ],
+        [update.start_time, update.end_time, update.match_id],
       );
     }
+  }
+
+  public async fetchCompleteMatchHistory(): Promise<Record<string, string[]>> {
+    const query =
+      "SELECT home_team_id, away_team_id FROM matches WHERE status = 'BEENDET'";
+    const result = await this.db.query(query);
+
+    const history: Record<string, string[]> = {};
+    for (const row of result.rows) {
+      if (row.home_team_id && row.away_team_id) {
+        if (!history[row.home_team_id]) history[row.home_team_id] = [];
+        if (!history[row.away_team_id]) history[row.away_team_id] = [];
+        history[row.home_team_id].push(row.away_team_id);
+        history[row.away_team_id].push(row.home_team_id);
+      }
+    }
+    return history;
+  }
+
+  public async fetchMaxMatchNumber(): Promise<number> {
+    const result = await this.db.query(
+      "SELECT MAX(match_number) as max_num FROM matches",
+    );
+    return result.rows[0].max_num || 0;
+  }
+
+  public async recalculateMatchNumbers(): Promise<void> {
+    const query = `
+            WITH sorted_matches AS (
+                SELECT m.id, ROW_NUMBER() OVER (ORDER BY m.start_time ASC, g.field_numbers[1] ASC, g.name ASC) as new_number
+                FROM matches m
+                JOIN groups g ON m.group_id = g.id
+            )
+            UPDATE matches
+            SET match_number = sm.new_number
+            FROM sorted_matches sm
+            WHERE matches.id = sm.id;
+        `;
+    await this.db.query(query);
   }
 }

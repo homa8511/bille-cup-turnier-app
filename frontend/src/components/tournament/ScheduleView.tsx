@@ -56,6 +56,18 @@ export function ScheduleView({
     );
   });
 
+  const getFieldNumber = (match: Match, group: Group | undefined) => {
+    if (!group?.field_numbers?.length) return "-";
+    if (group.field_numbers.length === 1) return group.field_numbers[0];
+    const groupMatches = matches
+      .filter((m) => m.group_id === group.id)
+      .sort((a, b) => Number(a.match_number) - Number(b.match_number));
+    const idx = groupMatches.findIndex((m) => m.id === match.id);
+    return idx !== -1
+      ? group.field_numbers[idx % group.field_numbers.length]
+      : group.field_numbers[0];
+  };
+
   return (
     <div className="space-y-6 w-full">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -105,48 +117,102 @@ export function ScheduleView({
               <Trophy className="w-5 h-5" />
             </button>
           )}
-          {phaseTab !== "ALL" && (
-            <div className="flex bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden">
-              <button
-                onClick={() => setViewMode("table")}
-                className={`p-2 transition-colors ${viewMode === "table" ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300" : "text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700"}`}
-              >
-                <List className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setViewMode("cards")}
-                className={`p-2 transition-colors ${viewMode === "cards" ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300" : "text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700"}`}
-              >
-                <LayoutGrid className="w-4 h-4" />
-              </button>
-            </div>
-          )}
+          <div className="flex bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden">
+            <button
+              onClick={() => setViewMode("table")}
+              className={`p-2 transition-colors ${viewMode === "table" ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300" : "text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700"}`}
+            >
+              <List className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode("cards")}
+              className={`p-2 transition-colors ${viewMode === "cards" ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300" : "text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700"}`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
 
       {phaseTab === "ALL" ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {matches
-            .filter(
-              (m) =>
-                !teamSearchFilter ||
-                m.home_team_id === teamSearchFilter ||
-                m.away_team_id === teamSearchFilter,
-            )
-            .sort((a, b) => a.match_number - b.match_number)
-            .map((match) => (
-              <MatchCard
-                key={match.id}
-                match={match}
-                group={groups.find((g) => g.id === match.group_id)}
-                homeTeam={teams.find((tm) => tm.id === match.home_team_id)}
-                awayTeam={teams.find((tm) => tm.id === match.away_team_id)}
-                isAdmin={!!adminToken}
-                onUpdateResult={onUpdateResult}
-                t={t}
-              />
-            ))}
-        </div>
+        viewMode === "cards" ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {matches
+              .filter(
+                (m) =>
+                  !teamSearchFilter ||
+                  m.home_team_id === teamSearchFilter ||
+                  m.away_team_id === teamSearchFilter,
+              )
+              .sort((a, b) => Number(a.match_number) - Number(b.match_number))
+              .map((match) => {
+                const group = groups.find((g) => g.id === match.group_id);
+                return (
+                  <MatchCard
+                    key={match.id}
+                    match={match}
+                    group={group}
+                    homeTeam={teams.find((tm) => tm.id === match.home_team_id)}
+                    awayTeam={teams.find((tm) => tm.id === match.away_team_id)}
+                    isAdmin={!!adminToken}
+                    onUpdateResult={onUpdateResult}
+                    fieldNumber={getFieldNumber(match, group)}
+                    t={t}
+                  />
+                );
+              })}
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 w-full">
+            <table className="w-full text-sm text-left border-collapse min-w-[600px]">
+              <thead className="text-xs font-bold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-b border-slate-300 dark:border-slate-600">
+                <tr>
+                  <th className="px-3 py-3 text-center w-10">{t.nr}</th>
+                  <th className="px-2 py-3 text-center w-10">{t.f}</th>
+                  <th className="px-3 py-3 text-center w-20">{t.beginn}</th>
+                  <th className="px-2 py-3 text-center w-10">{t.gr}</th>
+                  <th className="px-4 py-3 text-center" colSpan={4}>
+                    {t.spiel}
+                  </th>
+                  <th className="px-4 py-3 text-center w-24">{t.ergebnis}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
+                {matches
+                  .filter(
+                    (m) =>
+                      !teamSearchFilter ||
+                      m.home_team_id === teamSearchFilter ||
+                      m.away_team_id === teamSearchFilter,
+                  )
+                  .sort(
+                    (a, b) => Number(a.match_number) - Number(b.match_number),
+                  )
+                  .map((match) => {
+                    const group = groups.find((g) => g.id === match.group_id);
+                    return (
+                      <MatchTableRow
+                        key={match.id}
+                        match={match}
+                        group={group}
+                        homeTeam={teams.find(
+                          (t) => t.id === match.home_team_id,
+                        )}
+                        awayTeam={teams.find(
+                          (t) => t.id === match.away_team_id,
+                        )}
+                        isAdmin={!!adminToken}
+                        onUpdateResult={onUpdateResult}
+                        selectedTeam={teamSearchFilter}
+                        fieldNumber={getFieldNumber(match, group)}
+                        t={t}
+                      />
+                    );
+                  })}
+              </tbody>
+            </table>
+          </div>
+        )
       ) : (
         <div className="flex flex-col gap-8 w-full">
           {filteredGroupsForSchedule.length === 0 ? (
@@ -205,7 +271,10 @@ export function ScheduleView({
                       {viewMode === "cards" ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                           {groupMatches
-                            .sort((a, b) => a.match_number - b.match_number)
+                            .sort(
+                              (a, b) =>
+                                Number(a.match_number) - Number(b.match_number),
+                            )
                             .map((match) => (
                               <MatchCard
                                 key={match.id}
@@ -219,6 +288,7 @@ export function ScheduleView({
                                 )}
                                 isAdmin={!!adminToken}
                                 onUpdateResult={onUpdateResult}
+                                fieldNumber={getFieldNumber(match, group)}
                                 t={t}
                               />
                             ))}
@@ -253,7 +323,11 @@ export function ScheduleView({
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
                               {groupMatches
-                                .sort((a, b) => a.match_number - b.match_number)
+                                .sort(
+                                  (a, b) =>
+                                    Number(a.match_number) -
+                                    Number(b.match_number),
+                                )
                                 .map((match) => (
                                   <MatchTableRow
                                     key={match.id}
@@ -268,6 +342,7 @@ export function ScheduleView({
                                     isAdmin={!!adminToken}
                                     onUpdateResult={onUpdateResult}
                                     selectedTeam={teamSearchFilter}
+                                    fieldNumber={getFieldNumber(match, group)}
                                     t={t}
                                   />
                                 ))}

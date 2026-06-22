@@ -11,6 +11,7 @@ interface MatchTableRowProps {
   isAdmin: boolean;
   onUpdateResult: (id: string, h: number, a: number) => void;
   selectedTeam?: string;
+  fieldNumber?: number | string;
   t: any;
 }
 
@@ -22,6 +23,7 @@ export function MatchTableRow({
   isAdmin,
   onUpdateResult,
   selectedTeam,
+  fieldNumber,
   t,
 }: MatchTableRowProps) {
   const [editMode, setEditMode] = useState(false);
@@ -58,7 +60,7 @@ export function MatchTableRow({
 
   const formatTime = (iso: string) => {
     if (!iso) return "--:--";
-    return new Date(iso).toLocaleTimeString("de-DE", {
+    return new Date(iso).toLocaleTimeString(t.localeCode || "de-DE", {
       hour: "2-digit",
       minute: "2-digit",
     });
@@ -70,7 +72,7 @@ export function MatchTableRow({
         {match.match_number}
       </td>
       <td className="px-2 py-3 text-center font-medium text-slate-600 dark:text-slate-400">
-        {group?.field_numbers?.[0] || "-"}
+        {fieldNumber || group?.field_numbers?.[0] || "-"}
       </td>
       <td className="px-3 py-3 text-center font-medium text-slate-600 dark:text-slate-400">
         {formatTime(match.start_time)}
