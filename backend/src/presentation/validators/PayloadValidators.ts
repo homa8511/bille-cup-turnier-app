@@ -19,11 +19,13 @@ export const matchResultSchema = z.object({
 
 export const settingsSchema = z.object({
   body: z.object({
+    tournament_name: z.string().max(255).nullable().optional(),
     match_duration_minutes: z.number().int().min(1).max(120),
     pause_duration_minutes: z.number().int().min(0).max(60),
     phase_start_time: z.string().datetime().nullable().optional(),
-    footer_text_de: z.string().max(500).nullable().optional(),
-    footer_text_en: z.string().max(500).nullable().optional(),
+    footer_text_de: z.string().max(5000).nullable().optional(),
+    footer_text_en: z.string().max(5000).nullable().optional(),
+    sponsors: z.array(z.string()).optional(),
   }),
 });
 
@@ -55,7 +57,6 @@ export const pdfUploadSchema = z.object({
   ),
 });
 
-// Definition des Schemas für eine einzelne Info-Box
 const infoBoxSchema = z.object({
   id: z.string().min(1),
   icon: z.string().min(1),

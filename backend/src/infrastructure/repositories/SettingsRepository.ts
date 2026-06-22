@@ -10,6 +10,7 @@ export interface TournamentConfig {
   background_image_mobile_path: string | null;
   footer_text_de: string | null;
   footer_text_en: string | null;
+  sponsors: string[];
 }
 
 export class SettingsRepository {
@@ -23,7 +24,7 @@ export class SettingsRepository {
     const query = `
             SELECT tournament_name, match_duration_minutes, pause_duration_minutes, phase_start_time, 
                    tournament_logo_path, background_image_path, background_image_mobile_path, 
-                   footer_text_de, footer_text_en
+                   footer_text_de, footer_text_en, sponsors
             FROM tournament_settings LIMIT 1
         `;
     const result = await this.db.query(query);
@@ -39,6 +40,7 @@ export class SettingsRepository {
         background_image_mobile_path: null,
         footer_text_de: "© 2026 Bille Cup - Alle Rechte vorbehalten.",
         footer_text_en: "© 2026 Bille Cup - All rights reserved.",
+        sponsors: [],
       };
     }
 
@@ -49,13 +51,15 @@ export class SettingsRepository {
     const currentConfig = await this.fetchConfig();
     const mergedConfig = { ...currentConfig, ...config };
 
+    const sponsorsJson = JSON.stringify(mergedConfig.sponsors || []);
+
     const query = `
             INSERT INTO tournament_settings (
                 id, tournament_name, match_duration_minutes, pause_duration_minutes, phase_start_time,
                 tournament_logo_path, background_image_path, background_image_mobile_path, 
-                footer_text_de, footer_text_en
+                footer_text_de, footer_text_en, sponsors
             )
-            VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, $9)
+            VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             ON CONFLICT (id) DO UPDATE 
             SET tournament_name = $1,
                 match_duration_minutes = $2, 
@@ -65,7 +69,8 @@ export class SettingsRepository {
                 background_image_path = $6,
                 background_image_mobile_path = $7,
                 footer_text_de = $8,
-                footer_text_en = $9
+                footer_text_en = $9,
+                sponsors = $10
         `;
     await this.db.query(query, [
       mergedConfig.tournament_name,
@@ -77,6 +82,7 @@ export class SettingsRepository {
       mergedConfig.background_image_mobile_path,
       mergedConfig.footer_text_de,
       mergedConfig.footer_text_en,
+      sponsorsJson,
     ]);
   }
 }

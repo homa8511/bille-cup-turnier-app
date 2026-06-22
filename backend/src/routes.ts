@@ -1,6 +1,9 @@
 import { NextFunction, Request, Response, Router } from "express";
+import fs from "fs";
 import * as jwt from "jsonwebtoken";
 import multer from "multer";
+import path from "path";
+import sharp from "sharp";
 import { ZodTypeAny } from "zod";
 import { TournamentController } from "./presentation/controllers/TournamentController";
 import {
@@ -214,7 +217,6 @@ router.post(
     tournamentController.uploadTeamLogo(req, res),
 );
 
-// --- NEU: PUT Route für die Namensänderung ---
 router.put(
   "/admin/teams/:id/name",
   authenticateToken,
@@ -271,6 +273,40 @@ router.post(
   authenticateToken,
   (req: Request, res: Response) =>
     tournamentController.generateSwissRound(req, res),
+);
+
+router.post(
+  "/admin/settings/sponsors",
+  authenticateToken,
+  handleMulterUpload(uploadImage.single("sponsor")),
+  validateFilePayload(imageUploadSchema),
+  async (req: Request, res: Response) => {
+    if (!req.file) {
+      return res.status(400).json({ message: "Keine Datei hochgeladen" });
+    }
+    try {
+      const filename = `sponsor-${Date.now()}-${Math.round(Math.random() * 1000)}.webp`;
+      const uploadDir = path.join(__dirname, "../public/images/uploads");
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      const filepath = path.join(uploadDir, filename);
+
+      await sharp(req.file.buffer)
+        .resize({ height: 150, withoutEnlargement: true })
+        .webp({ quality: 80 })
+        .toFile(filepath);
+
+      res.json({
+        message: "Sponsor hochgeladen",
+        url: `/public/images/uploads/${filename}`,
+      });
+    } catch (error: any) {
+      res
+        .status(500)
+        .json({ message: `Fehler beim Speichern: ${error.message}` });
+    }
+  },
 );
 
 export default router;
