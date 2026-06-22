@@ -9,7 +9,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useState } from "react";
-import { MarkdownEditor } from "../ui/MarkdownEditor";
+import { MarkdownEditor } from "../components/ui/MarkdownEditor";
 
 export interface InfoBox {
   id: string;

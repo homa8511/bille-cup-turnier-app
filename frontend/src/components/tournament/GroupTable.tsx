@@ -1,4 +1,4 @@
-import type { Group, Team } from "../../types";
+import type { Group, Team } from "../../types/index";
 import { TeamLogo } from "../ui/TeamLogo";
 
 interface GroupTableProps {

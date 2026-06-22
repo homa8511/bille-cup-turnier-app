@@ -1,5 +1,5 @@
 import { PlayCircle } from "lucide-react";
-import type { Group, Match, Team } from "../../types";
+import type { Group, Match, Team } from "../../types/index";
 import { MatchCard } from "./MatchCard";
 
 interface TimeSlotProps {

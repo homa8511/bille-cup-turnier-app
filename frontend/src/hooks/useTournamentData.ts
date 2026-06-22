@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Group, Match, Team } from "../types";
+import type { Group, Match, Team } from "../types/index";
 
 // Dieser Hook lädt die Daten vom Backend.
 export function useTournamentData() {

@@ -1,7 +1,7 @@
 import { Info, Save, Settings2 } from "lucide-react";
-import type { Team } from "../../types";
-import { Modal } from "../ui/Modal";
-import { TeamLogo } from "../ui/TeamLogo";
+import type { Team } from "../../types/index"; // Importpfad korrigiert
+import { Modal } from "./Modal"; // Importpfad korrigiert: liegt nun im selben Ordner
+import { TeamLogo } from "./TeamLogo"; // Importpfad korrigiert: liegt nun im selben Ordner
 
 interface SeedingModalProps {
   isOpen: boolean;

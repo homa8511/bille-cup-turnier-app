@@ -1,30 +1,18 @@
-import {
-  CalendarDays,
-  Edit,
-  Info,
-  LogIn,
-  Moon,
-  Plus,
-  Settings2,
-  Shirt,
-  Sun,
-  Trash2,
-  Trophy,
-  Upload,
-} from "lucide-react";
+import { Edit, Plus, Trash2, Trophy, Upload } from "lucide-react";
 import React, { useEffect, useState } from "react";
-import { AdminDashboard } from "./components/admin/AdminDashboard";
-import { SeedingModal } from "./components/admin/SeedingModal";
-import { MyTeamView } from "./components/tournament/MyTeamView";
-import { ScheduleView } from "./components/tournament/ScheduleView";
-import {
-  TournamentInfo,
-  type InfoBox,
-} from "./components/tournament/TournamentInfo";
-import { MarkdownEditor } from "./components/ui/MarkdownEditor";
 import { Modal } from "./components/ui/Modal";
 import { useTournamentData } from "./hooks/useTournamentData";
+
+import { FloatingMenuBar } from "./components/layout/FloatingMenuBar";
+import { MainViewContainer } from "./components/layout/MainViewContainer";
+import { MarkdownEditor } from "./components/ui/MarkdownEditor";
+import { SeedingModal } from "./components/ui/SeedingModal";
 import { translations, type Language } from "./locales/translations";
+import type { GlobalSettings, InfoBox, SeedingItem } from "./types/index";
+import { AdminDashboard as AdminDashboardView } from "./views/AdminDashboardView";
+import { MyTeamView } from "./views/MyTeamView";
+import { ScheduleView } from "./views/ScheduleView";
+import { TournamentInfo as TournamentInfoView } from "./views/TournamentInfoView";
 
 const initialMarkdown = `# Willkommen beim U10 Bille Cup 2026!\n\nDas größte Jugendturnier im Osten Hamburgs freut sich auf spannende Spiele.\n\n![Stadion](https://images.unsplash.com/photo-1518605368461-1ee7e163396f?auto=format&fit=crop&q=80&w=800)\n\n### Aktuelle Turnierregeln\n* Die reguläre Spieldauer beträgt exakt 10 Minuten.\n* Für einen Sieg erhält die Mannschaft 3 Punkte.\n* Bei einem Unentschieden bekommt jedes Team 1 Punkt.\n* Die Rückpassregel ist für den Torwart aufgehoben.`;
 
@@ -106,7 +94,9 @@ export default function App() {
   const [tournamentInfo, setTournamentInfo] = useState(initialMarkdown);
   const [infoBoxes, setInfoBoxes] = useState<InfoBox[]>(initialBoxes);
 
-  const [globalSettings, setGlobalSettings] = useState<any>(null);
+  const [globalSettings, setGlobalSettings] = useState<GlobalSettings | null>(
+    null,
+  );
   const [organizerInfo, setOrganizerInfo] = useState(
     "TSG Bergedorf\nBilltalstadion\n21029 Hamburg",
   );
@@ -114,7 +104,7 @@ export default function App() {
   const [sponsors, setSponsors] = useState<string[]>([]);
 
   const [isSeedingModalOpen, setIsSeedingModalOpen] = useState(false);
-  const [seedingData, setSeedingData] = useState<any[]>([]);
+  const [seedingData, setSeedingData] = useState<SeedingItem[]>([]);
 
   const t = translations[language];
 
@@ -163,6 +153,11 @@ export default function App() {
     } catch {
       alert("Netzwerkfehler beim Login.");
     }
+  };
+
+  const handleLogout = () => {
+    setAdminToken(null);
+    localStorage.removeItem("adminToken");
   };
 
   const handleUpdateResult = async (
@@ -297,10 +292,8 @@ export default function App() {
   return (
     <div className={theme === "dark" ? "dark" : ""}>
       <div className="min-h-screen flex flex-col font-sans transition-colors duration-300 relative overflow-x-hidden">
-        {/* FIXIERTER UNTERGRUND (Sichtbar nach dem Scrollen) */}
         <div className="fixed inset-0 -z-20 bg-slate-200 dark:bg-slate-950" />
 
-        {/* FIXIERTES BILD */}
         <div className="fixed top-0 left-0 w-full -z-10 bg-slate-900">
           <img
             src={bgImage}
@@ -309,46 +302,8 @@ export default function App() {
           />
         </div>
 
-        {/* SCROLLENDER VORDERGRUND (max 90% Breite) */}
         <div className="w-[90%] max-w-7xl mx-auto flex flex-col min-h-screen z-10">
-          <div className="flex justify-end gap-2 py-4 z-30">
-            <button
-              onClick={toggleLanguage}
-              className="w-10 h-10 flex items-center justify-center bg-white/20 backdrop-blur-md text-white rounded-full hover:bg-white/40 transition shadow-sm text-lg border border-white/30"
-            >
-              {language === "de" ? "🇬🇧" : "🇩🇪"}
-            </button>
-            <button
-              onClick={toggleTheme}
-              className="p-2 bg-white/20 backdrop-blur-md text-white rounded-full hover:bg-white/40 transition shadow-sm border border-white/30"
-            >
-              {theme === "light" ? (
-                <Moon className="w-5 h-5" />
-              ) : (
-                <Sun className="w-5 h-5" />
-              )}
-            </button>
-            {adminToken ? (
-              <button
-                onClick={() => {
-                  setAdminToken(null);
-                  localStorage.removeItem("adminToken");
-                }}
-                className="text-sm font-medium px-4 bg-red-600/90 backdrop-blur-md hover:bg-red-700 text-white rounded-full transition shadow-sm"
-              >
-                {t.logout}
-              </button>
-            ) : (
-              <button
-                onClick={() => setShowLoginModal(true)}
-                className="p-2 bg-white/20 backdrop-blur-md text-white rounded-full hover:bg-white/40 transition shadow-sm border border-white/30"
-              >
-                <LogIn className="w-5 h-5" />
-              </button>
-            )}
-          </div>
-
-          <div className="pt-8 pb-12 flex flex-col items-center text-center relative z-20">
+          <div className="pt-12 pb-12 flex flex-col items-center text-center relative z-20 mt-4">
             <div className="relative mb-6">
               {globalSettings?.tournament_logo_path && (
                 <img
@@ -394,89 +349,67 @@ export default function App() {
             )}
           </div>
 
-          <nav className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md shadow-xl rounded-2xl flex overflow-x-auto divide-x divide-gray-200 dark:divide-slate-700 z-20 mb-8 border border-white/20 dark:border-slate-600">
-            <button
-              onClick={() => setMainMenuTab("INFO")}
-              className={`px-5 md:px-8 py-4 flex flex-col md:flex-row items-center gap-2 font-semibold transition-colors whitespace-nowrap ${mainMenuTab === "INFO" ? "bg-blue-50 text-blue-700 dark:bg-slate-700 dark:text-blue-400" : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50"}`}
-            >
-              <Info className="w-5 h-5" />{" "}
-              <span className="text-sm md:text-base">{t.infos}</span>
-            </button>
-            <button
-              onClick={() => setMainMenuTab("MY_TEAM")}
-              className={`px-5 md:px-8 py-4 flex flex-col md:flex-row items-center gap-2 font-semibold transition-colors whitespace-nowrap ${mainMenuTab === "MY_TEAM" ? "bg-blue-50 text-blue-700 dark:bg-slate-700 dark:text-blue-400" : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50"}`}
-            >
-              <Shirt className="w-5 h-5" />{" "}
-              <span className="text-sm md:text-base">{t.myTeam}</span>
-            </button>
-            <button
-              onClick={() => setMainMenuTab("SCHEDULE")}
-              className={`px-5 md:px-8 py-4 flex flex-col md:flex-row items-center gap-2 font-semibold transition-colors whitespace-nowrap ${mainMenuTab === "SCHEDULE" ? "bg-blue-50 text-blue-700 dark:bg-slate-700 dark:text-blue-400" : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50"}`}
-            >
-              <CalendarDays className="w-5 h-5" />{" "}
-              <span className="text-sm md:text-base">{t.scheduleTab}</span>
-            </button>
-            {adminToken && (
-              <button
-                onClick={() => setMainMenuTab("ADMIN")}
-                className={`px-5 md:px-8 py-4 flex flex-col md:flex-row items-center gap-2 font-semibold transition-colors whitespace-nowrap text-amber-500 ${mainMenuTab === "ADMIN" ? "bg-blue-50 dark:bg-slate-700" : "hover:bg-slate-50 dark:hover:bg-slate-700/50"}`}
-              >
-                <Settings2 className="w-5 h-5" />{" "}
-                <span className="text-sm md:text-base">Admin</span>
-              </button>
+          <FloatingMenuBar
+            mainMenuTab={mainMenuTab}
+            setMainMenuTab={setMainMenuTab}
+            adminToken={adminToken}
+            language={language}
+            theme={theme}
+            toggleLanguage={toggleLanguage}
+            toggleTheme={toggleTheme}
+            onLogout={handleLogout}
+            onLoginClick={() => setShowLoginModal(true)}
+            t={t}
+          />
+
+          <MainViewContainer>
+            {mainMenuTab === "ADMIN" && adminToken && (
+              <AdminDashboardView
+                adminToken={adminToken}
+                teams={teams}
+                refetch={refetch}
+                onSettingsChanged={fetchSettings}
+                t={t}
+                globalSettings={globalSettings}
+              />
             )}
-          </nav>
 
-          <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md shadow-2xl rounded-3xl p-4 sm:p-8 z-20 mb-12 flex-1 border border-white/20 dark:border-slate-700">
-            <main className="space-y-8">
-              {mainMenuTab === "ADMIN" && adminToken && (
-                <AdminDashboard
-                  adminToken={adminToken}
-                  teams={teams}
-                  refetch={refetch}
-                  onSettingsChanged={fetchSettings}
-                  t={t}
-                  globalSettings={globalSettings}
-                />
-              )}
+            {mainMenuTab === "INFO" && (
+              <TournamentInfoView
+                content={tournamentInfo}
+                boxes={infoBoxes}
+                isAdmin={!!adminToken}
+                adminToken={adminToken || ""}
+                onSaveContent={setTournamentInfo}
+                onSaveBoxes={setInfoBoxes}
+                t={t}
+              />
+            )}
 
-              {mainMenuTab === "INFO" && (
-                <TournamentInfo
-                  content={tournamentInfo}
-                  boxes={infoBoxes}
-                  isAdmin={!!adminToken}
-                  adminToken={adminToken || ""}
-                  onSaveContent={setTournamentInfo}
-                  onSaveBoxes={setInfoBoxes}
-                  t={t}
-                />
-              )}
+            {mainMenuTab === "MY_TEAM" && (
+              <MyTeamView
+                teams={teams}
+                groups={groups}
+                matches={matches}
+                adminToken={adminToken}
+                onUpdateResult={handleUpdateResult}
+                t={t}
+              />
+            )}
 
-              {mainMenuTab === "MY_TEAM" && (
-                <MyTeamView
-                  teams={teams}
-                  groups={groups}
-                  matches={matches}
-                  adminToken={adminToken}
-                  onUpdateResult={handleUpdateResult}
-                  t={t}
-                />
-              )}
-
-              {mainMenuTab === "SCHEDULE" && (
-                <ScheduleView
-                  teams={teams}
-                  groups={groups}
-                  matches={matches}
-                  adminToken={adminToken}
-                  onOpenSeedingModal={handleOpenSeedingModal}
-                  onStartFinalRound={handleStartFinalRound}
-                  onUpdateResult={handleUpdateResult}
-                  t={t}
-                />
-              )}
-            </main>
-          </div>
+            {mainMenuTab === "SCHEDULE" && (
+              <ScheduleView
+                teams={teams}
+                groups={groups}
+                matches={matches}
+                adminToken={adminToken}
+                onOpenSeedingModal={handleOpenSeedingModal}
+                onStartFinalRound={handleStartFinalRound}
+                onUpdateResult={handleUpdateResult}
+                t={t}
+              />
+            )}
+          </MainViewContainer>
 
           {adminToken && (
             <SeedingModal

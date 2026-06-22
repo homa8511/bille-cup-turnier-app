@@ -8,10 +8,10 @@ import {
   Trophy,
 } from "lucide-react";
 import { useState } from "react";
-import type { Group, Match, Team } from "../../types";
-import { GroupTable } from "./GroupTable";
-import { MatchCard } from "./MatchCard";
-import { MatchTableRow } from "./MatchTableRow";
+import { GroupTable } from "../components/tournament/GroupTable";
+import { MatchCard } from "../components/tournament/MatchCard";
+import { MatchTableRow } from "../components/tournament/MatchTableRow";
+import type { Group, Match, Team } from "../types/index";
 
 interface ScheduleViewProps {
   teams: Team[];

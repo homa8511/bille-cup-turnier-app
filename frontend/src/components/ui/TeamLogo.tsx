@@ -1,4 +1,4 @@
-import type { Team } from "../../types";
+import type { Team } from "../../types/index";
 
 interface TeamLogoProps {
   team?: Team;

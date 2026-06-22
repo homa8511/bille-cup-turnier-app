@@ -1,6 +1,6 @@
 import { Clock, Edit, Save, X } from "lucide-react";
 import { useState } from "react";
-import type { Group, Match, Team } from "../../types";
+import type { Group, Match, Team } from "../../types/index";
 import { TeamLogo } from "../ui/TeamLogo";
 
 interface MatchCardProps {

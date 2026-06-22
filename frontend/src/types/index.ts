@@ -40,3 +40,39 @@ export interface Match {
   end_time: string;
   status: "GEPLANT" | "LIVE" | "BEENDET";
 }
+
+// Diese Schnittstelle definiert eine Infobox auf der Startseite.
+export interface InfoBox {
+  id: string;
+  icon: string;
+  title: string;
+  content: string;
+}
+
+// Diese Schnittstelle definiert die globalen Turniereinstellungen.
+export interface GlobalSettings {
+  tournament_name: string | null;
+  match_duration_minutes: number;
+  pause_duration_minutes: number;
+  phase_start_time: string | null;
+  tournament_logo_path: string | null;
+  background_image_path: string | null;
+  background_image_mobile_path: string | null;
+  footer_text_de: string | null;
+  footer_text_en: string | null;
+}
+
+// Diese Schnittstelle definiert einen Eintrag in der Setzliste.
+export interface SeedingItem {
+  team_id: string;
+  vorrunden_platz: number;
+  assigned_group: string;
+  potIndex?: number;
+  conflict_with_team_id?: string | null;
+  conflict_resolved?: boolean;
+  stats?: {
+    points: number;
+    goal_diff: number;
+    goals_scored: number;
+  };
+}

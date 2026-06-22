@@ -9,8 +9,8 @@ import {
   X,
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
-import type { Team } from "../../types";
-import { TeamLogo } from "../ui/TeamLogo";
+import { TeamLogo } from "../components/ui/TeamLogo";
+import type { Team } from "../types/index";
 
 interface AdminDashboardProps {
   adminToken: string;
