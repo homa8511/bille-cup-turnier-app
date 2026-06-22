@@ -133,6 +133,15 @@ export function TournamentInfo({
     }
   };
 
+  const displayBoxes = [...boxes];
+  if (
+    editingBoxId &&
+    editBoxData &&
+    !boxes.some((b) => b.id === editingBoxId)
+  ) {
+    displayBoxes.push(editBoxData);
+  }
+
   return (
     <div className="flex flex-col lg:flex-row gap-8 w-full">
       {/* Linke Spalte: Hauptinhalt */}
@@ -173,7 +182,7 @@ export function TournamentInfo({
 
       {/* Rechte Spalte: Dynamische Info-Boxen */}
       <div className="w-full lg:w-1/3 space-y-6">
-        {boxes.map((box) => (
+        {displayBoxes.map((box) => (
           <div
             key={box.id}
             className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 p-5 relative group"
