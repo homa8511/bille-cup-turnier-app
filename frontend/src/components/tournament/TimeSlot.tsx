@@ -1,5 +1,5 @@
 import { PlayCircle } from "lucide-react";
-import type { Match } from "../../types";
+import type { Group, Match, Team } from "../../types";
 import { MatchCard } from "./MatchCard";
 
 interface TimeSlotProps {
@@ -8,6 +8,9 @@ interface TimeSlotProps {
   isAdmin: boolean;
   onStartRound: (time: string) => void;
   onUpdateResult: (matchId: string, home: number, away: number) => void;
+  t: any; // Das Übersetzungs-Objekt ist nun Pflicht
+  teams?: Team[]; // Optional für die Wappen-Anzeige
+  groups?: Group[]; // Optional für die Gruppen-Anzeige
 }
 
 export function TimeSlot({
@@ -16,6 +19,9 @@ export function TimeSlot({
   isAdmin,
   onStartRound,
   onUpdateResult,
+  t,
+  teams = [],
+  groups = [],
 }: TimeSlotProps) {
   // Prüfen, ob noch Spiele in dieser Runde GEPLANT sind
   const canStartRound = matches.some((m) => m.status === "GEPLANT");
@@ -48,8 +54,12 @@ export function TimeSlot({
           <MatchCard
             key={match.id}
             match={match}
+            group={groups.find((g) => g.id === match.group_id)}
+            homeTeam={teams.find((tm) => tm.id === match.home_team_id)}
+            awayTeam={teams.find((tm) => tm.id === match.away_team_id)}
             isAdmin={isAdmin}
             onUpdateResult={onUpdateResult}
+            t={t} // Hier reichen wir das t-Objekt weiter
           />
         ))}
       </div>

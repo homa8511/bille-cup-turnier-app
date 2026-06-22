@@ -66,6 +66,8 @@ CREATE TABLE IF NOT EXISTS pages (
     title_en VARCHAR(255) NOT NULL,
     markdown_content_de TEXT,
     markdown_content_en TEXT,
+    sidebar_boxes_de JSONB DEFAULT '[]'::jsonb,
+    sidebar_boxes_en JSONB DEFAULT '[]'::jsonb,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

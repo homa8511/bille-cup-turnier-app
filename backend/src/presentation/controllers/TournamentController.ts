@@ -135,8 +135,6 @@ export class TournamentController {
     }
   }
 
-  // --- NEU: Endpunkte für die Setzliste und Phasenübergänge ---
-
   public async previewSnakeSeeding(req: Request, res: Response): Promise<void> {
     try {
       const preview = await this.tournamentFlow.compileIntermediateSeeding();
@@ -170,8 +168,6 @@ export class TournamentController {
       res.status(500).json({ error: error.message });
     }
   }
-
-  // --- ENDE NEU ---
 
   public async generateSwissRound(req: Request, res: Response): Promise<void> {
     const groupId = req.params.groupId as string;
@@ -252,6 +248,22 @@ export class TournamentController {
       res
         .status(500)
         .json({ error: `Fehler bei der Bildverarbeitung: ${error.message}` });
+    }
+  }
+
+  // --- NEU: Controller-Methode für den Team-Namen ---
+  public async updateTeamName(req: Request, res: Response): Promise<void> {
+    const teamId = req.params.id;
+    const { name } = req.body;
+    try {
+      await this.db.query("UPDATE teams SET name = $1 WHERE id = $2", [
+        name,
+        teamId,
+      ]);
+      this.broadcastUpdate({ type: "TEAM_UPDATED" });
+      res.json({ message: "Team-Name erfolgreich aktualisiert" });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
     }
   }
 
@@ -404,6 +416,7 @@ export class TournamentController {
           title: lang === "en" ? page.title_en : page.title_de,
           content:
             lang === "en" ? page.markdown_content_en : page.markdown_content_de,
+          boxes: lang === "en" ? page.sidebar_boxes_en : page.sidebar_boxes_de,
           updated_at: page.updated_at,
         });
       } else {
@@ -416,7 +429,14 @@ export class TournamentController {
 
   public async updatePageContent(req: Request, res: Response): Promise<void> {
     const slug = req.params.slug as string;
-    const { title_de, title_en, content_de, content_en } = req.body;
+    const {
+      title_de,
+      title_en,
+      content_de,
+      content_en,
+      sidebar_boxes_de,
+      sidebar_boxes_en,
+    } = req.body;
     try {
       await this.contentRepo.upsertPage(
         slug,
@@ -424,6 +444,8 @@ export class TournamentController {
         title_en,
         content_de,
         content_en,
+        sidebar_boxes_de,
+        sidebar_boxes_en,
       );
       this.broadcastUpdate({ type: "CONTENT_UPDATED", slug });
       res.json({ message: "Seiteninhalt erfolgreich aktualisiert" });

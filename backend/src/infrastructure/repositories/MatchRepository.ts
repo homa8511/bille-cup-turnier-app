@@ -128,6 +128,22 @@ export class MatchRepository {
     return (result.rows[0] as MatchData) || null;
   }
 
+  // Diese Methode berechnet die fortlaufenden Spielnummern anhand der Anstoßzeiten global neu.
+  public async recalculateMatchNumbers(): Promise<void> {
+    const query = `
+            WITH NumberedMatches AS (
+                SELECT m.id, ROW_NUMBER() OVER (ORDER BY m.start_time ASC, g.name ASC) as new_number
+                FROM matches m
+                JOIN groups g ON m.group_id = g.id
+            )
+            UPDATE matches m
+            SET match_number = nm.new_number
+            FROM NumberedMatches nm
+            WHERE m.id = nm.id
+        `;
+    await this.db.query(query);
+  }
+
   // Diese Methode speichert die neuen Anstoßzeiten für mehrere Spiele gleichzeitig.
   public async updateMatchTimes(updates: ScheduleUpdate[]): Promise<void> {
     for (const update of updates) {

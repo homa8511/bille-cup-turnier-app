@@ -20,4 +20,17 @@ export class TeamRepository {
     const result = await this.db.query(query, [id]);
     return result.rows[0] ? (result.rows[0] as TeamData) : null;
   }
+
+  // Diese Methode aktualisiert den Namen eines Teams.
+  public async updateTeamName(id: string, name: string): Promise<void> {
+    await this.db.query("UPDATE teams SET name = $1 WHERE id = $2", [name, id]);
+  }
+
+  // Diese Methode speichert den Dateipfad für das hochgeladene Team-Logo.
+  public async updateTeamLogo(id: string, logoPath: string): Promise<void> {
+    await this.db.query("UPDATE teams SET logo_path = $1 WHERE id = $2", [
+      logoPath,
+      id,
+    ]);
+  }
 }

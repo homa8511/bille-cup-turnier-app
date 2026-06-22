@@ -1,29 +1,31 @@
 import type { Group, Team } from "../../types";
 
-// Diese Schnittstelle definiert die erforderlichen Eigenschaften für die Gruppentabelle.
 interface GroupTableProps {
   group: Group;
   teams: Team[];
   selectedTeam?: string;
+  t: any;
 }
 
-// Diese Komponente rendert die dynamische Tabelle einer einzelnen Spielgruppe.
-export function GroupTable({ group, teams, selectedTeam }: GroupTableProps) {
-  // Diese Hilfsfunktion sucht die Teamdaten anhand der eindeutigen ID aus der Liste.
-  const getTeam = (teamId: string) => teams.find((t) => t.id === teamId);
+export function GroupTable({ group, teams, selectedTeam, t }: GroupTableProps) {
+  const getTeam = (teamId: string) => teams.find((tm) => tm.id === teamId);
 
   return (
     <div className="overflow-x-auto w-full">
       <table className="w-full text-sm text-left whitespace-nowrap">
         <thead className="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/30 border-b dark:border-slate-700">
           <tr>
-            <th className="px-4 py-3 font-semibold w-8 text-center">Pl</th>
-            <th className="px-2 py-3 font-semibold">Teilnehmer</th>
-            <th className="px-2 py-3 font-semibold text-center">SP</th>
-            <th className="px-2 py-3 font-semibold text-center">T</th>
-            <th className="px-2 py-3 font-semibold text-center">TD</th>
+            <th className="px-4 py-3 font-semibold w-8 text-center">
+              {t.rankShort}
+            </th>
+            <th className="px-2 py-3 font-semibold">{t.participant}</th>
+            <th className="px-2 py-3 font-semibold text-center">{t.sp}</th>
+            <th className="px-2 py-3 font-semibold text-center">
+              {t.goalsShort}
+            </th>
+            <th className="px-2 py-3 font-semibold text-center">{t.tdShort}</th>
             <th className="px-4 py-3 font-semibold text-center bg-blue-600 text-white dark:bg-blue-700">
-              PKT
+              {t.ptsShort}
             </th>
           </tr>
         </thead>
@@ -56,7 +58,7 @@ export function GroupTable({ group, teams, selectedTeam }: GroupTableProps) {
                         <div className="w-full h-full bg-slate-200 dark:bg-slate-700" />
                       )}
                     </div>
-                    {team?.name || "Unbekanntes Team"}
+                    {team?.name || t.unknown}
                   </td>
 
                   <td className="px-2 py-3 text-center text-slate-600 dark:text-slate-400">
@@ -80,7 +82,7 @@ export function GroupTable({ group, teams, selectedTeam }: GroupTableProps) {
           ) : (
             <tr>
               <td colSpan={6} className="p-4 text-center text-slate-500 italic">
-                Noch keine Tabellendaten verfügbar.
+                {t.noTableData}
               </td>
             </tr>
           )}

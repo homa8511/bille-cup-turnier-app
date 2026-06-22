@@ -4,11 +4,14 @@ import multer from "multer";
 import { ZodTypeAny } from "zod";
 import { TournamentController } from "./presentation/controllers/TournamentController";
 import {
+  imageUploadSchema,
   initTournamentSchema,
   loginSchema,
   matchResultSchema,
   pageContentSchema,
+  pdfUploadSchema,
   settingsSchema,
+  updateTeamNameSchema,
 } from "./presentation/validators/PayloadValidators";
 
 const router = Router();
@@ -32,21 +35,51 @@ const validatePayload =
     }
   };
 
+const validateFilePayload =
+  (schema: ZodTypeAny) =>
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      await schema.parseAsync({ file: req.file });
+      return next();
+    } catch (error) {
+      return res
+        .status(400)
+        .json({ message: "Dateivalidierungsfehler", details: error });
+    }
+  };
+
+const handleMulterUpload = (uploadMiddleware: any) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    uploadMiddleware(req, res, (err: any) => {
+      if (err instanceof multer.MulterError) {
+        if (err.code === "LIMIT_FILE_SIZE") {
+          return res
+            .status(400)
+            .json({
+              message: "Die Datei überschreitet die maximal zulässige Größe.",
+            });
+        }
+        return res
+          .status(400)
+          .json({ message: `Upload-Fehler: ${err.message}` });
+      } else if (err) {
+        return res.status(400).json({ message: err.message });
+      }
+      next();
+    });
+  };
+};
+
 const imageFilter = (
   req: Request,
   file: Express.Multer.File,
   cb: multer.FileFilterCallback,
 ) => {
-  const allowedMimeTypes = [
-    "image/jpeg",
-    "image/png",
-    "image/webp",
-    "image/avif",
-  ];
+  const allowedMimeTypes = ["image/jpeg", "image/png", "image/webp"];
   if (allowedMimeTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error("Nur JPG, PNG, WEBP und AVIF sind erlaubt"));
+    cb(new Error("Nur JPG, PNG und WEBP sind erlaubt"));
   }
 };
 
@@ -65,13 +98,13 @@ const documentFilter = (
 const uploadImage = multer({
   storage: multer.memoryStorage(),
   fileFilter: imageFilter,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 2 * 1024 * 1024 },
 });
 
 const uploadDoc = multer({
   storage: multer.memoryStorage(),
   fileFilter: documentFilter,
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: 5 * 1024 * 1024 },
 });
 
 const authenticateToken = (
@@ -151,7 +184,6 @@ router.put(
     tournamentController.updatePageContent(req, res),
 );
 
-// --- NEUE ENDPUNKTE FÜR DIE PHASENÜBERGÄNGE ---
 router.get(
   "/admin/preview-snake",
   authenticateToken,
@@ -172,27 +204,38 @@ router.post(
   (req: Request, res: Response) =>
     tournamentController.startFinalRound(req, res),
 );
-// --- ENDE NEU ---
 
 router.post(
   "/admin/teams/:id/logo",
   authenticateToken,
-  uploadImage.single("logo"),
+  handleMulterUpload(uploadImage.single("logo")),
+  validateFilePayload(imageUploadSchema),
   (req: Request, res: Response) =>
     tournamentController.uploadTeamLogo(req, res),
+);
+
+// --- NEU: PUT Route für die Namensänderung ---
+router.put(
+  "/admin/teams/:id/name",
+  authenticateToken,
+  validatePayload(updateTeamNameSchema),
+  (req: Request, res: Response) =>
+    tournamentController.updateTeamName(req, res),
 );
 
 router.post(
   "/admin/settings/logo",
   authenticateToken,
-  uploadImage.single("logo"),
+  handleMulterUpload(uploadImage.single("logo")),
+  validateFilePayload(imageUploadSchema),
   (req: Request, res: Response) => tournamentController.uploadLogo(req, res),
 );
 
 router.post(
   "/admin/settings/background",
   authenticateToken,
-  uploadImage.single("background"),
+  handleMulterUpload(uploadImage.single("background")),
+  validateFilePayload(imageUploadSchema),
   (req: Request, res: Response) =>
     tournamentController.uploadBackground(req, res),
 );
@@ -200,7 +243,8 @@ router.post(
 router.post(
   "/admin/settings/background-mobile",
   authenticateToken,
-  uploadImage.single("background_mobile"),
+  handleMulterUpload(uploadImage.single("background_mobile")),
+  validateFilePayload(imageUploadSchema),
   (req: Request, res: Response) =>
     tournamentController.uploadBackgroundMobile(req, res),
 );
@@ -208,7 +252,8 @@ router.post(
 router.post(
   "/admin/documents",
   authenticateToken,
-  uploadDoc.single("document"),
+  handleMulterUpload(uploadDoc.single("document")),
+  validateFilePayload(pdfUploadSchema),
   (req: Request, res: Response) =>
     tournamentController.uploadDocument(req, res),
 );
