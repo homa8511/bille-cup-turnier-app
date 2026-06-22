@@ -1,14 +1,12 @@
 import {
-  ChevronDown,
-  ChevronUp,
+  CalendarDays,
   Edit,
-  LayoutGrid,
-  List,
+  Info,
   LogIn,
   Moon,
   Plus,
-  Search,
   Settings2,
+  Shirt,
   Sun,
   Trash2,
   Trophy,
@@ -17,9 +15,8 @@ import {
 import React, { useEffect, useState } from "react";
 import { AdminDashboard } from "./components/admin/AdminDashboard";
 import { SeedingModal } from "./components/admin/SeedingModal";
-import { GroupTable } from "./components/tournament/GroupTable";
-import { MatchCard } from "./components/tournament/MatchCard";
-import { MatchTableRow } from "./components/tournament/MatchTableRow";
+import { MyTeamView } from "./components/tournament/MyTeamView";
+import { ScheduleView } from "./components/tournament/ScheduleView";
 import {
   TournamentInfo,
   type InfoBox,
@@ -94,11 +91,11 @@ const renderMarkdown = (text: string | null | undefined) => {
 
 export default function App() {
   const { teams, groups, matches, isLoading, refetch } = useTournamentData();
-  const [activeTab, setActiveTab] = useState("VORRUNDE");
+  const [mainMenuTab, setMainMenuTab] = useState<
+    "INFO" | "MY_TEAM" | "SCHEDULE" | "ADMIN"
+  >("INFO");
   const [language, setLanguage] = useState<Language>("de");
   const [theme, setTheme] = useState("light");
-  const [selectedTeam, setSelectedTeam] = useState("");
-  const [viewMode, setViewMode] = useState<"table" | "cards">("cards");
 
   const [adminToken, setAdminToken] = useState<string | null>(() =>
     localStorage.getItem("adminToken"),
@@ -108,23 +105,25 @@ export default function App() {
 
   const [tournamentInfo, setTournamentInfo] = useState(initialMarkdown);
   const [infoBoxes, setInfoBoxes] = useState<InfoBox[]>(initialBoxes);
-  const [collapsedSchedules, setCollapsedSchedules] = useState<
-    Record<string, boolean>
-  >({});
 
-  const [tournamentLogo, setTournamentLogo] = useState<string | null>(null);
+  const [globalSettings, setGlobalSettings] = useState<any>(null);
   const [organizerInfo, setOrganizerInfo] = useState(
     "TSG Bergedorf\nBilltalstadion\n21029 Hamburg",
   );
   const [isEditingOrganizer, setIsEditingOrganizer] = useState(false);
-  const [sponsors, setSponsors] = useState<string[]>([
-    "https://placehold.co/300x150/ffffff/000000?text=Sponsor+1",
-  ]);
+  const [sponsors, setSponsors] = useState<string[]>([]);
 
   const [isSeedingModalOpen, setIsSeedingModalOpen] = useState(false);
   const [seedingData, setSeedingData] = useState<any[]>([]);
 
   const t = translations[language];
+
+  const fetchSettings = () => {
+    fetch("/api/settings")
+      .then((res) => res.json())
+      .then(setGlobalSettings)
+      .catch(() => null);
+  };
 
   useEffect(() => {
     if (
@@ -134,6 +133,7 @@ export default function App() {
       setTheme("dark");
       document.documentElement.classList.add("dark");
     }
+    fetchSettings();
   }, []);
 
   const toggleLanguage = () => setLanguage((l) => (l === "de" ? "en" : "de"));
@@ -187,12 +187,21 @@ export default function App() {
     }
   };
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setTournamentLogo(reader.result as string);
-      reader.readAsDataURL(file);
+    if (!file) return;
+    const formData = new FormData();
+    formData.append("logo", file);
+    try {
+      const res = await fetch("/api/admin/settings/logo", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${adminToken}` },
+        body: formData,
+      });
+      if (res.ok) fetchSettings();
+      else alert("Fehler beim Upload des Logos.");
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -269,26 +278,17 @@ export default function App() {
     }
   };
 
-  const sortedGroups = [...groups].sort((a, b) => a.name.localeCompare(b.name));
-  const filteredGroups = sortedGroups.filter((g) => {
-    if (g.phase !== activeTab) return false;
-    if (!selectedTeam) return true;
-    return (
-      g.standings?.some((s) => s.team_id === selectedTeam) ||
-      matches.some(
-        (m) =>
-          m.group_id === g.id &&
-          (m.home_team_id === selectedTeam || m.away_team_id === selectedTeam),
-      )
-    );
-  });
+  const bgImage =
+    globalSettings?.background_image_path ||
+    "https://images.unsplash.com/photo-1518605368461-1ee7e163396f?auto=format&fit=crop&q=80&w=1280";
+  const displayTitle = globalSettings?.tournament_name || t.title;
 
   if (isLoading && teams.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
         <div className="text-center animate-pulse">
           <Trophy className="w-12 h-12 text-blue-600 mx-auto mb-4" />
-          <p className="font-medium">{t.loadingData || "Lade..."}</p>
+          <p className="font-medium">{t.loadingData}</p>
         </div>
       </div>
     );
@@ -296,25 +296,70 @@ export default function App() {
 
   return (
     <div className={theme === "dark" ? "dark" : ""}>
-      <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-sans transition-colors duration-300">
-        <header className="bg-blue-900 dark:bg-slate-950 text-white p-4 shadow-md sticky top-0 z-20">
-          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              {tournamentLogo ? (
-                <img
-                  src={tournamentLogo}
-                  alt="Logo"
-                  className="h-12 w-auto object-contain bg-white rounded p-1 shadow-sm"
-                />
+      <div className="min-h-screen flex flex-col font-sans transition-colors duration-300 relative overflow-x-hidden">
+        {/* FIXIERTER UNTERGRUND (Sichtbar nach dem Scrollen) */}
+        <div className="fixed inset-0 -z-20 bg-slate-200 dark:bg-slate-950" />
+
+        {/* FIXIERTES BILD */}
+        <div className="fixed top-0 left-0 w-full -z-10 bg-slate-900">
+          <img
+            src={bgImage}
+            alt="Tournament Background"
+            className="w-full h-[100dvh] lg:h-auto object-cover object-center lg:object-top opacity-60 mix-blend-overlay lg:mix-blend-normal lg:opacity-100"
+          />
+        </div>
+
+        {/* SCROLLENDER VORDERGRUND (max 90% Breite) */}
+        <div className="w-[90%] max-w-7xl mx-auto flex flex-col min-h-screen z-10">
+          <div className="flex justify-end gap-2 py-4 z-30">
+            <button
+              onClick={toggleLanguage}
+              className="w-10 h-10 flex items-center justify-center bg-white/20 backdrop-blur-md text-white rounded-full hover:bg-white/40 transition shadow-sm text-lg border border-white/30"
+            >
+              {language === "de" ? "🇬🇧" : "🇩🇪"}
+            </button>
+            <button
+              onClick={toggleTheme}
+              className="p-2 bg-white/20 backdrop-blur-md text-white rounded-full hover:bg-white/40 transition shadow-sm border border-white/30"
+            >
+              {theme === "light" ? (
+                <Moon className="w-5 h-5" />
               ) : (
-                <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
-                  <Trophy className="w-6 h-6 text-yellow-400" />
-                  {t.title}
-                </h1>
+                <Sun className="w-5 h-5" />
+              )}
+            </button>
+            {adminToken ? (
+              <button
+                onClick={() => {
+                  setAdminToken(null);
+                  localStorage.removeItem("adminToken");
+                }}
+                className="text-sm font-medium px-4 bg-red-600/90 backdrop-blur-md hover:bg-red-700 text-white rounded-full transition shadow-sm"
+              >
+                {t.logout}
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowLoginModal(true)}
+                className="p-2 bg-white/20 backdrop-blur-md text-white rounded-full hover:bg-white/40 transition shadow-sm border border-white/30"
+              >
+                <LogIn className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+
+          <div className="pt-8 pb-12 flex flex-col items-center text-center relative z-20">
+            <div className="relative mb-6">
+              {globalSettings?.tournament_logo_path && (
+                <img
+                  src={globalSettings.tournament_logo_path}
+                  className="max-w-[200px] md:max-w-[300px] max-h-[200px] object-contain drop-shadow-2xl"
+                  alt="Logo"
+                />
               )}
               {adminToken && (
                 <label
-                  className="cursor-pointer p-2 bg-blue-800 rounded-full hover:bg-blue-700 transition"
+                  className="absolute -right-4 -top-4 cursor-pointer p-2 bg-blue-600 rounded-full hover:bg-blue-700 text-white transition shadow-lg"
                   title={t.uploadLogo}
                 >
                   <Upload className="w-4 h-4" />
@@ -327,378 +372,214 @@ export default function App() {
                 </label>
               )}
             </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={toggleLanguage}
-                className="w-10 h-10 flex items-center justify-center bg-blue-800 rounded-full hover:bg-blue-700 transition shadow-inner text-xl"
-              >
-                {language === "de" ? "🇬🇧" : "🇩🇪"}
-              </button>
-              <button
-                onClick={toggleTheme}
-                className="p-2 bg-blue-800 rounded-full hover:bg-blue-700 transition"
-              >
-                {theme === "light" ? (
-                  <Moon className="w-5 h-5" />
-                ) : (
-                  <Sun className="w-5 h-5" />
+            <h1
+              className="text-4xl md:text-6xl lg:text-7xl font-extrabold text-white drop-shadow-xl mb-4 tracking-tight"
+              style={{ textShadow: "0 2px 10px rgba(0,0,0,0.5)" }}
+            >
+              {displayTitle}
+            </h1>
+            {globalSettings?.phase_start_time && (
+              <p className="text-white text-lg md:text-xl font-bold bg-black/40 px-5 py-1.5 rounded-full backdrop-blur-sm shadow-lg border border-white/20">
+                Start:{" "}
+                {new Date(globalSettings.phase_start_time).toLocaleDateString(
+                  t.localeCode,
+                  {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  },
                 )}
-              </button>
-              {adminToken ? (
-                <button
-                  onClick={() => {
-                    setAdminToken(null);
-                    localStorage.removeItem("adminToken");
-                  }}
-                  className="text-sm font-medium px-3 py-1.5 bg-red-600 hover:bg-red-700 rounded-md transition"
-                >
-                  {t.logout}
-                </button>
-              ) : (
-                <button
-                  onClick={() => setShowLoginModal(true)}
-                  className="p-2 bg-blue-800 rounded-full hover:bg-blue-700 transition"
-                >
-                  <LogIn className="w-5 h-5" />
-                </button>
-              )}
-            </div>
+              </p>
+            )}
           </div>
-        </header>
 
-        <div className="flex-1">
-          {activeTab !== "INFOS" && activeTab !== "ADMIN" && (
-            <div className="max-w-7xl mx-auto px-4 mt-6 flex justify-between items-end gap-4">
-              <div className="w-full sm:w-96 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <select
-                  value={selectedTeam}
-                  onChange={(e) => setSelectedTeam(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 shadow-sm appearance-none outline-none"
-                >
-                  <option value="">{t.allTeams}</option>
-                  {teams.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex items-center gap-4 shrink-0">
-                {adminToken && activeTab === "ZWISCHENRUNDE" && (
-                  <button
-                    onClick={handleOpenSeedingModal}
-                    className="flex items-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm transition-colors font-semibold text-sm"
-                  >
-                    <Settings2 className="w-5 h-5" />
-                    {t.editSeeding}
-                  </button>
-                )}
-                {adminToken && activeTab === "FINALRUNDE" && (
-                  <button
-                    onClick={handleStartFinalRound}
-                    className="flex items-center gap-2 px-4 py-3 bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl shadow-sm transition-colors font-semibold text-sm"
-                  >
-                    <Trophy className="w-5 h-5" />
-                    {t.startFinalRound}
-                  </button>
-                )}
-
-                <div className="flex bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden">
-                  <button
-                    onClick={() => setViewMode("table")}
-                    className={`p-3 transition-colors ${viewMode === "table" ? "bg-blue-100 dark:bg-blue-900 text-blue-700" : "text-slate-500 hover:bg-slate-50"}`}
-                  >
-                    <List className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => setViewMode("cards")}
-                    className={`p-3 transition-colors ${viewMode === "cards" ? "bg-blue-100 dark:bg-blue-900 text-blue-700" : "text-slate-500 hover:bg-slate-50"}`}
-                  >
-                    <LayoutGrid className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <nav className="max-w-7xl mx-auto px-4 mt-6 overflow-x-auto">
-            <div className="flex bg-white dark:bg-slate-800 rounded-xl shadow-sm p-1 min-w-max">
-              {[
-                "VORRUNDE",
-                "ZWISCHENRUNDE",
-                "FINALRUNDE",
-                "INFOS",
-                ...(adminToken ? ["ADMIN"] : []),
-              ].map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`flex-1 px-4 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === tab ? "bg-blue-100 dark:bg-blue-900 text-blue-700" : "text-slate-500 hover:text-slate-700"}`}
-                >
-                  {tab === "ADMIN" ? t.adminArea : t[tab.toLowerCase()]}
-                </button>
-              ))}
-            </div>
+          <nav className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md shadow-xl rounded-2xl flex overflow-x-auto divide-x divide-gray-200 dark:divide-slate-700 z-20 mb-8 border border-white/20 dark:border-slate-600">
+            <button
+              onClick={() => setMainMenuTab("INFO")}
+              className={`px-5 md:px-8 py-4 flex flex-col md:flex-row items-center gap-2 font-semibold transition-colors whitespace-nowrap ${mainMenuTab === "INFO" ? "bg-blue-50 text-blue-700 dark:bg-slate-700 dark:text-blue-400" : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50"}`}
+            >
+              <Info className="w-5 h-5" />{" "}
+              <span className="text-sm md:text-base">{t.infos}</span>
+            </button>
+            <button
+              onClick={() => setMainMenuTab("MY_TEAM")}
+              className={`px-5 md:px-8 py-4 flex flex-col md:flex-row items-center gap-2 font-semibold transition-colors whitespace-nowrap ${mainMenuTab === "MY_TEAM" ? "bg-blue-50 text-blue-700 dark:bg-slate-700 dark:text-blue-400" : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50"}`}
+            >
+              <Shirt className="w-5 h-5" />{" "}
+              <span className="text-sm md:text-base">{t.myTeam}</span>
+            </button>
+            <button
+              onClick={() => setMainMenuTab("SCHEDULE")}
+              className={`px-5 md:px-8 py-4 flex flex-col md:flex-row items-center gap-2 font-semibold transition-colors whitespace-nowrap ${mainMenuTab === "SCHEDULE" ? "bg-blue-50 text-blue-700 dark:bg-slate-700 dark:text-blue-400" : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50"}`}
+            >
+              <CalendarDays className="w-5 h-5" />{" "}
+              <span className="text-sm md:text-base">{t.scheduleTab}</span>
+            </button>
+            {adminToken && (
+              <button
+                onClick={() => setMainMenuTab("ADMIN")}
+                className={`px-5 md:px-8 py-4 flex flex-col md:flex-row items-center gap-2 font-semibold transition-colors whitespace-nowrap text-amber-500 ${mainMenuTab === "ADMIN" ? "bg-blue-50 dark:bg-slate-700" : "hover:bg-slate-50 dark:hover:bg-slate-700/50"}`}
+              >
+                <Settings2 className="w-5 h-5" />{" "}
+                <span className="text-sm md:text-base">Admin</span>
+              </button>
+            )}
           </nav>
 
-          <main className="max-w-7xl mx-auto p-4 mt-2 space-y-6">
-            {activeTab === "ADMIN" && adminToken && (
-              <AdminDashboard
-                adminToken={adminToken}
-                teams={teams}
-                refetch={refetch}
-                t={t}
-              />
-            )}
-
-            {activeTab === "INFOS" && (
-              <TournamentInfo
-                content={tournamentInfo}
-                boxes={infoBoxes}
-                isAdmin={!!adminToken}
-                adminToken={adminToken || ""}
-                onSaveContent={setTournamentInfo}
-                onSaveBoxes={setInfoBoxes}
-                t={t}
-              />
-            )}
-
-            {activeTab !== "INFOS" && activeTab !== "ADMIN" && (
-              <div className="flex flex-col gap-8 w-full">
-                {filteredGroups.length === 0 ? (
-                  <div className="w-full bg-white dark:bg-slate-800 p-8 rounded-2xl text-center text-gray-500">
-                    {t.noMatches}
-                  </div>
-                ) : (
-                  filteredGroups.map((group) => {
-                    const isScheduleCollapsed = collapsedSchedules[group.id];
-                    const groupMatches = matches.filter(
-                      (m) =>
-                        m.group_id === group.id &&
-                        (!selectedTeam ||
-                          m.home_team_id === selectedTeam ||
-                          m.away_team_id === selectedTeam),
-                    );
-
-                    return (
-                      <div
-                        key={group.id}
-                        className="w-full bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden flex flex-col"
-                      >
-                        <div className="bg-slate-100 dark:bg-slate-900/50 px-4 py-3 border-b dark:border-slate-700 flex justify-between items-center">
-                          <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
-                            {group.name}
-                          </h2>
-                        </div>
-                        <GroupTable
-                          group={group}
-                          teams={teams}
-                          selectedTeam={selectedTeam}
-                          t={t}
-                        />
-                        <button
-                          onClick={() =>
-                            setCollapsedSchedules((p) => ({
-                              ...p,
-                              [group.id]: !p[group.id],
-                            }))
-                          }
-                          className="w-full flex justify-between items-center px-4 py-3 bg-slate-50 dark:bg-slate-800/80 border-t border-b dark:border-slate-700"
-                        >
-                          <span className="font-bold text-sm text-slate-600 dark:text-slate-300">
-                            {t.matches} {group.name}
-                          </span>
-                          <div className="text-slate-400">
-                            {isScheduleCollapsed ? (
-                              <ChevronDown className="w-5 h-5" />
-                            ) : (
-                              <ChevronUp className="w-5 h-5" />
-                            )}
-                          </div>
-                        </button>
-                        {!isScheduleCollapsed && (
-                          <div className="bg-slate-50/50 dark:bg-slate-900/20 p-4 w-full">
-                            {viewMode === "cards" ? (
-                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {groupMatches.map((match) => (
-                                  <MatchCard
-                                    key={match.id}
-                                    match={match}
-                                    group={group}
-                                    homeTeam={teams.find(
-                                      (t) => t.id === match.home_team_id,
-                                    )}
-                                    awayTeam={teams.find(
-                                      (t) => t.id === match.away_team_id,
-                                    )}
-                                    isAdmin={!!adminToken}
-                                    onUpdateResult={handleUpdateResult}
-                                    t={t}
-                                  />
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 w-full">
-                                <table className="w-full text-sm text-left border-collapse min-w-[600px]">
-                                  <thead className="text-xs font-bold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-b border-slate-300 dark:border-slate-600">
-                                    <tr>
-                                      <th className="px-3 py-3 text-center w-10">
-                                        {t.nr}
-                                      </th>
-                                      <th className="px-2 py-3 text-center w-10">
-                                        {t.f}
-                                      </th>
-                                      <th className="px-3 py-3 text-center w-20">
-                                        {t.beginn}
-                                      </th>
-                                      <th className="px-2 py-3 text-center w-10">
-                                        {t.gr}
-                                      </th>
-                                      <th
-                                        className="px-4 py-3 text-center"
-                                        colSpan={4}
-                                      >
-                                        {t.spiel}
-                                      </th>
-                                      <th className="px-4 py-3 text-center w-24">
-                                        {t.ergebnis}
-                                      </th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
-                                    {groupMatches.map((match) => (
-                                      <MatchTableRow
-                                        key={match.id}
-                                        match={match}
-                                        group={group}
-                                        homeTeam={teams.find(
-                                          (t) => t.id === match.home_team_id,
-                                        )}
-                                        awayTeam={teams.find(
-                                          (t) => t.id === match.away_team_id,
-                                        )}
-                                        isAdmin={!!adminToken}
-                                        onUpdateResult={handleUpdateResult}
-                                        selectedTeam={selectedTeam}
-                                        t={t}
-                                      />
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            )}
-          </main>
-        </div>
-
-        {adminToken && (
-          <SeedingModal
-            isOpen={isSeedingModalOpen}
-            onClose={() => setIsSeedingModalOpen(false)}
-            seedingData={seedingData}
-            teams={teams}
-            onUpdateGroup={(teamId, newGroup) => {
-              setSeedingData((prev) =>
-                prev.map((i) =>
-                  i.team_id === teamId ? { ...i, assigned_group: newGroup } : i,
-                ),
-              );
-            }}
-            onSave={saveSeedingData}
-            t={t}
-          />
-        )}
-
-        <footer className="mt-12 bg-white dark:bg-slate-800 border-t border-gray-200 dark:border-slate-700 py-10">
-          <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-10">
-            <div>
-              <h3 className="font-bold text-lg mb-4 text-slate-800 dark:text-slate-100">
-                {t.organizer}
-              </h3>
-              {adminToken && !isEditingOrganizer && (
-                <button
-                  onClick={() => {
-                    setIsEditingOrganizer(true);
-                  }}
-                  className="mb-4 flex items-center gap-2 text-blue-600 text-sm hover:underline"
-                >
-                  <Edit className="w-4 h-4" /> {t.edit}
-                </button>
-              )}
-
-              {isEditingOrganizer ? (
-                <div className="mt-2">
-                  <MarkdownEditor
-                    initialValue={organizerInfo}
-                    onSave={(val) => {
-                      setOrganizerInfo(val);
-                      setIsEditingOrganizer(false);
-                    }}
-                    onCancel={() => setIsEditingOrganizer(false)}
-                    t={t}
-                    adminToken={adminToken || ""}
-                  />
-                </div>
-              ) : (
-                <div
-                  className="prose prose-sm dark:prose-invert max-w-none text-slate-600 dark:text-slate-400 leading-relaxed"
-                  dangerouslySetInnerHTML={renderMarkdown(organizerInfo)}
+          <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md shadow-2xl rounded-3xl p-4 sm:p-8 z-20 mb-12 flex-1 border border-white/20 dark:border-slate-700">
+            <main className="space-y-8">
+              {mainMenuTab === "ADMIN" && adminToken && (
+                <AdminDashboard
+                  adminToken={adminToken}
+                  teams={teams}
+                  refetch={refetch}
+                  onSettingsChanged={fetchSettings}
+                  t={t}
+                  globalSettings={globalSettings}
                 />
               )}
-            </div>
-            <div>
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-lg text-slate-800 dark:text-slate-100">
-                  {t.sponsors}
+
+              {mainMenuTab === "INFO" && (
+                <TournamentInfo
+                  content={tournamentInfo}
+                  boxes={infoBoxes}
+                  isAdmin={!!adminToken}
+                  adminToken={adminToken || ""}
+                  onSaveContent={setTournamentInfo}
+                  onSaveBoxes={setInfoBoxes}
+                  t={t}
+                />
+              )}
+
+              {mainMenuTab === "MY_TEAM" && (
+                <MyTeamView
+                  teams={teams}
+                  groups={groups}
+                  matches={matches}
+                  adminToken={adminToken}
+                  onUpdateResult={handleUpdateResult}
+                  t={t}
+                />
+              )}
+
+              {mainMenuTab === "SCHEDULE" && (
+                <ScheduleView
+                  teams={teams}
+                  groups={groups}
+                  matches={matches}
+                  adminToken={adminToken}
+                  onOpenSeedingModal={handleOpenSeedingModal}
+                  onStartFinalRound={handleStartFinalRound}
+                  onUpdateResult={handleUpdateResult}
+                  t={t}
+                />
+              )}
+            </main>
+          </div>
+
+          {adminToken && (
+            <SeedingModal
+              isOpen={isSeedingModalOpen}
+              onClose={() => setIsSeedingModalOpen(false)}
+              seedingData={seedingData}
+              teams={teams}
+              onUpdateGroup={(teamId, newGroup) => {
+                setSeedingData((prev) =>
+                  prev.map((i) =>
+                    i.team_id === teamId
+                      ? { ...i, assigned_group: newGroup }
+                      : i,
+                  ),
+                );
+              }}
+              onSave={saveSeedingData}
+              t={t}
+            />
+          )}
+
+          <footer className="mt-auto bg-white/95 dark:bg-slate-800/95 backdrop-blur-md shadow-xl rounded-t-3xl border-t border-gray-200 dark:border-slate-700 py-10 z-20 px-6 sm:px-10 mb-8">
+            <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10">
+              <div>
+                <h3 className="font-bold text-lg mb-4 text-slate-800 dark:text-slate-100">
+                  {t.organizer}
                 </h3>
-                {adminToken && (
-                  <label className="cursor-pointer flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 transition">
-                    <Plus className="w-4 h-4" /> {t.addSponsor}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleSponsorUpload}
+                {adminToken && !isEditingOrganizer && (
+                  <button
+                    onClick={() => {
+                      setIsEditingOrganizer(true);
+                    }}
+                    className="mb-4 flex items-center gap-2 text-blue-600 text-sm hover:underline"
+                  >
+                    <Edit className="w-4 h-4" /> {t.edit}
+                  </button>
+                )}
+
+                {isEditingOrganizer ? (
+                  <div className="mt-2">
+                    <MarkdownEditor
+                      initialValue={organizerInfo}
+                      onSave={(val) => {
+                        setOrganizerInfo(val);
+                        setIsEditingOrganizer(false);
+                      }}
+                      onCancel={() => setIsEditingOrganizer(false)}
+                      t={t}
+                      adminToken={adminToken || ""}
                     />
-                  </label>
+                  </div>
+                ) : (
+                  <div
+                    className="prose prose-sm dark:prose-invert max-w-none text-slate-600 dark:text-slate-400 leading-relaxed"
+                    dangerouslySetInnerHTML={renderMarkdown(organizerInfo)}
+                  />
                 )}
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 items-center">
-                {sponsors.map((img, idx) => (
-                  <div
-                    key={idx}
-                    className="relative group bg-slate-50 dark:bg-slate-900 rounded-lg p-3 border border-gray-100 dark:border-slate-700 aspect-video flex items-center justify-center"
-                  >
-                    <img
-                      src={img}
-                      alt={`Sponsor ${idx + 1}`}
-                      className="max-w-full max-h-full object-contain"
-                    />
-                    {adminToken && (
-                      <button
-                        onClick={() =>
-                          setSponsors((p) => p.filter((_, i) => i !== idx))
-                        }
-                        className="absolute -top-2 -right-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                ))}
+              <div>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-bold text-lg text-slate-800 dark:text-slate-100">
+                    {t.sponsors}
+                  </h3>
+                  {adminToken && (
+                    <label className="cursor-pointer flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 transition">
+                      <Plus className="w-4 h-4" /> {t.addSponsor}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleSponsorUpload}
+                      />
+                    </label>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 items-center">
+                  {sponsors.map((img, idx) => (
+                    <div
+                      key={idx}
+                      className="relative group bg-slate-50 dark:bg-slate-900 rounded-lg p-3 border border-gray-100 dark:border-slate-700 aspect-video flex items-center justify-center"
+                    >
+                      <img
+                        src={img}
+                        alt={`Sponsor ${idx + 1}`}
+                        className="max-w-full max-h-full object-contain"
+                      />
+                      {adminToken && (
+                        <button
+                          onClick={() =>
+                            setSponsors((p) => p.filter((_, i) => i !== idx))
+                          }
+                          className="absolute -top-2 -right-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
-        </footer>
+          </footer>
+        </div>
 
         <Modal
           isOpen={showLoginModal}

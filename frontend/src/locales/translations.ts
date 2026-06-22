@@ -53,8 +53,8 @@ export const translations: Record<Language, Record<string, string>> = {
     uploadTeamLogo: "Neues Wappen",
     startFinalRound: "Finalrunde starten",
     groupWord: "Gruppe",
+    localeCode: "de-DE",
     loadingData: "Turnierdaten werden geladen...",
-    // Neue Tabellen-Übersetzungen
     rankShort: "Pl",
     participant: "Teilnehmer",
     sp: "SP",
@@ -62,7 +62,6 @@ export const translations: Record<Language, Record<string, string>> = {
     tdShort: "TD",
     ptsShort: "PKT",
     noTableData: "Noch keine Tabellendaten verfügbar.",
-    // Neue Modal-Übersetzungen
     pool1: "Topf 1 (1. Plätze)",
     pool2: "Topf 2 (2. Plätze)",
     pool3: "Topf 3 (3. Plätze)",
@@ -74,6 +73,12 @@ export const translations: Record<Language, Record<string, string>> = {
       "Gruppe getauscht, um erneutes Vorrunden-Duell zu vermeiden.",
     releaseAndGenerate: "Freigeben & Zwischenrunde generieren",
     rankSymbol: "#",
+    myTeam: "Mein Team",
+    scheduleTab: "Spielplan",
+    allMatches: "Alle Spiele",
+    backToTeams: "Zurück zu allen Teams",
+    standingsTab: "Tabelle",
+    matchesTab: "Spiele",
   },
   en: {
     title: "U10 Bille Cup 2026",
@@ -127,8 +132,8 @@ export const translations: Record<Language, Record<string, string>> = {
     uploadTeamLogo: "New Crest",
     startFinalRound: "Start Finals",
     groupWord: "Group",
+    localeCode: "en-US",
     loadingData: "Loading tournament data...",
-    // Neue Tabellen-Übersetzungen
     rankShort: "Rk",
     participant: "Participant",
     sp: "MP",
@@ -136,7 +141,6 @@ export const translations: Record<Language, Record<string, string>> = {
     tdShort: "GD",
     ptsShort: "PTS",
     noTableData: "No standings data available yet.",
-    // Neue Modal-Übersetzungen
     pool1: "Pot 1 (1st places)",
     pool2: "Pot 2 (2nd places)",
     pool3: "Pot 3 (3rd places)",
@@ -147,5 +151,11 @@ export const translations: Record<Language, Record<string, string>> = {
     groupSwappedTooltip: "Group swapped to avoid repeated preliminary duel.",
     releaseAndGenerate: "Approve & Generate Intermediate Round",
     rankSymbol: "#",
+    myTeam: "My Team",
+    scheduleTab: "Schedule",
+    allMatches: "All Matches",
+    backToTeams: "Back to all teams",
+    standingsTab: "Standings",
+    matchesTab: "Matches",
   },
 };

@@ -1,4 +1,5 @@
 import type { Group, Team } from "../../types";
+import { TeamLogo } from "../ui/TeamLogo";
 
 interface GroupTableProps {
   group: Group;
@@ -47,17 +48,7 @@ export function GroupTable({ group, teams, selectedTeam, t }: GroupTableProps) {
                   <td
                     className={`px-2 py-3 flex items-center gap-2 ${isSelected ? "font-bold text-blue-700 dark:text-blue-400" : "font-medium"}`}
                   >
-                    <div className="w-6 h-6 flex items-center justify-center bg-white rounded-full border border-gray-200 dark:border-slate-600 shadow-sm shrink-0 overflow-hidden">
-                      {team?.logo_path ? (
-                        <img
-                          src={team.logo_path}
-                          alt={team?.name}
-                          className="w-[90%] h-[90%] object-contain"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-slate-200 dark:bg-slate-700" />
-                      )}
-                    </div>
+                    <TeamLogo team={team} size="w-6 h-6" />
                     {team?.name || t.unknown}
                   </td>
 

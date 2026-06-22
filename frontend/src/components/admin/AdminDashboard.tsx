@@ -8,23 +8,36 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import type { Team } from "../../types";
 import { TeamLogo } from "../ui/TeamLogo";
+
 interface AdminDashboardProps {
   adminToken: string;
   teams: Team[];
-  refetch: () => void;
+  refetch: () => Promise<void> | void;
+  onSettingsChanged: () => void;
   t: any;
+  globalSettings?: any;
 }
+
 export function AdminDashboard({
   adminToken,
   teams,
   refetch,
+  onSettingsChanged,
   t,
+  globalSettings,
 }: AdminDashboardProps) {
-  const [adminMatchDuration, setAdminMatchDuration] = useState(10);
-  const [adminPauseDuration, setAdminPauseDuration] = useState(2);
+  const [adminTournamentName, setAdminTournamentName] = useState(
+    globalSettings?.tournament_name || "",
+  );
+  const [adminMatchDuration, setAdminMatchDuration] = useState(
+    globalSettings?.match_duration_minutes || 10,
+  );
+  const [adminPauseDuration, setAdminPauseDuration] = useState(
+    globalSettings?.pause_duration_minutes || 2,
+  );
   const [adminVorrundeStart, setAdminVorrundeStart] =
     useState("2026-06-27T10:00");
   const [adminZwischenrundeStart, setAdminZwischenrundeStart] =
@@ -34,9 +47,18 @@ export function AdminDashboard({
   const [bulkTeamsText, setBulkTeamsText] = useState("");
   const [csvTeams, setCsvTeams] = useState<
     { id: string; name: string; group: string }[]
-  >([]); // State für die Bearbeitung des Teamnamens
+  >([]);
+
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
   const [editTeamName, setEditTeamName] = useState("");
+
+  useEffect(() => {
+    if (globalSettings) {
+      setAdminTournamentName(globalSettings.tournament_name || "");
+      setAdminMatchDuration(globalSettings.match_duration_minutes || 10);
+      setAdminPauseDuration(globalSettings.pause_duration_minutes || 2);
+    }
+  }, [globalSettings]);
 
   const handleSaveSettings = async () => {
     try {
@@ -47,15 +69,40 @@ export function AdminDashboard({
           Authorization: `Bearer ${adminToken}`,
         },
         body: JSON.stringify({
+          tournament_name: adminTournamentName,
           match_duration_minutes: adminMatchDuration,
           pause_duration_minutes: adminPauseDuration,
-          phase_start_time: new Date(adminVorrundeStart).toISOString(),
         }),
       });
-      if (res.ok) alert("Einstellungen erfolgreich gespeichert!");
-      else alert("Fehler beim Speichern der Einstellungen.");
+      if (res.ok) {
+        alert("Einstellungen erfolgreich gespeichert!");
+        onSettingsChanged();
+      } else {
+        alert("Fehler beim Speichern der Einstellungen.");
+      }
     } catch {
       alert("Netzwerkfehler");
+    }
+  };
+
+  const handleBackgroundUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    if (!e.target.files?.[0]) return;
+    const formData = new FormData();
+    formData.append("background", e.target.files[0]);
+    try {
+      const res = await fetch(`/api/admin/settings/background`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${adminToken}` },
+        body: formData,
+      });
+      if (res.ok) {
+        alert("Hintergrundbild erfolgreich hochgeladen!");
+        onSettingsChanged();
+      } else alert("Fehler beim Upload");
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -319,24 +366,48 @@ export function AdminDashboard({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium mb-1">
-              {t.matchDuration}
+              Turnier Name
+            </label>
+            <input
+              type="text"
+              value={adminTournamentName}
+              onChange={(e) => setAdminTournamentName(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Hintergrundbild (Desktop/Tablet)
+            </label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleBackgroundUpload}
+              className="w-full px-3 py-1.5 border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Spieldauer (Min)
             </label>
             <input
               type="number"
               value={adminMatchDuration}
               onChange={(e) => setAdminMatchDuration(parseInt(e.target.value))}
-              className="w-full px-3 py-2 border rounded-lg dark:bg-slate-900 dark:border-slate-700 focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">
-              {t.pauseDuration}
+              Pause (Min)
             </label>
             <input
               type="number"
               value={adminPauseDuration}
               onChange={(e) => setAdminPauseDuration(parseInt(e.target.value))}
-              className="w-full px-3 py-2 border rounded-lg dark:bg-slate-900 dark:border-slate-700 focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 focus:ring-2 focus:ring-blue-500"
             />
           </div>
         </div>
@@ -404,7 +475,7 @@ export function AdminDashboard({
                     </button>
                   </div>
                 )}
-                <label className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 cursor-pointer flex items-center gap-1 mt-1 transition w-max">
+                <label className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 cursor-pointer flex items-center gap-1 transition w-max">
                   <Upload className="w-3 h-3" /> {t.uploadTeamLogo}
                   <input
                     type="file"
@@ -424,7 +495,7 @@ export function AdminDashboard({
       <section>
         <h2 className="text-2xl font-bold mb-2 flex items-center gap-2 text-red-600">
           <Trophy className="w-6 h-6" />
-          {t.initTournament}
+          Turnier-Setup
         </h2>
         <p className="text-sm text-slate-500 mb-6">{t.initWarning}</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
