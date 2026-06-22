@@ -1,5 +1,5 @@
 import { PlayCircle } from "lucide-react";
-import type { Group, Match, Team } from "../../types/index";
+import type { Group, Match, Team } from "../../types";
 import { MatchCard } from "./MatchCard";
 
 interface TimeSlotProps {
@@ -8,9 +8,9 @@ interface TimeSlotProps {
   isAdmin: boolean;
   onStartRound: (time: string) => void;
   onUpdateResult: (matchId: string, home: number, away: number) => void;
-  t: any; // Das Übersetzungs-Objekt ist nun Pflicht
-  teams?: Team[]; // Optional für die Wappen-Anzeige
-  groups?: Group[]; // Optional für die Gruppen-Anzeige
+  t: any;
+  teams?: Team[];
+  groups?: Group[];
 }
 
 export function TimeSlot({
@@ -23,13 +23,12 @@ export function TimeSlot({
   teams = [],
   groups = [],
 }: TimeSlotProps) {
-  // Prüfen, ob noch Spiele in dieser Runde GEPLANT sind
   const canStartRound = matches.some((m) => m.status === "GEPLANT");
 
   return (
     <div className="mb-8">
       <div className="flex justify-between items-center bg-slate-200 dark:bg-slate-800 px-4 py-2 rounded-t-lg">
-        <h3 className="font-bold text-lg">
+        <h3 className="font-bold text-lg text-slate-800 dark:text-slate-100">
           {new Date(time).toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit",
@@ -37,11 +36,10 @@ export function TimeSlot({
           Uhr
         </h3>
 
-        {/* Der magische Batch-Button für die Turnierleitung */}
         {isAdmin && canStartRound && (
           <button
             onClick={() => onStartRound(time)}
-            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded-md text-sm font-semibold transition"
+            className="flex items-center gap-2 bg-green-500 hover:bg-blue-500 text-white dark:bg-green-200 dark:hover:bg-blue-200 dark:text-slate-900 px-4 py-1.5 rounded-md text-sm font-semibold transition-colors shadow-sm"
           >
             <PlayCircle className="w-4 h-4" />
             Alle anpfeifen
@@ -59,7 +57,7 @@ export function TimeSlot({
             awayTeam={teams.find((tm) => tm.id === match.away_team_id)}
             isAdmin={isAdmin}
             onUpdateResult={onUpdateResult}
-            t={t} // Hier reichen wir das t-Objekt weiter
+            t={t}
           />
         ))}
       </div>

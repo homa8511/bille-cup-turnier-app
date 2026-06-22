@@ -11,7 +11,7 @@ import { useState } from "react";
 import { GroupTable } from "../components/tournament/GroupTable";
 import { MatchCard } from "../components/tournament/MatchCard";
 import { MatchTableRow } from "../components/tournament/MatchTableRow";
-import type { Group, Match, Team } from "../types/index";
+import type { Group, Match, Team } from "../types";
 
 interface ScheduleViewProps {
   teams: Team[];
@@ -76,7 +76,7 @@ export function ScheduleView({
             <button
               key={tab}
               onClick={() => setPhaseTab(tab)}
-              className={`px-4 py-2.5 text-sm font-bold rounded-lg transition-all ${phaseTab === tab ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300" : "text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700"}`}
+              className={`px-4 py-2.5 text-sm font-bold rounded-lg transition-all ${phaseTab === tab ? "bg-blue-500 text-white dark:bg-blue-200 dark:text-slate-900 shadow-sm" : "text-slate-500 hover:text-blue-500 dark:hover:text-blue-200 hover:bg-slate-50 dark:hover:bg-slate-700"}`}
             >
               {tab === "ALL" ? t.allMatches : t[tab.toLowerCase()]}
             </button>
@@ -89,7 +89,7 @@ export function ScheduleView({
             <select
               value={teamSearchFilter}
               onChange={(e) => setTeamSearchFilter(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none"
+              className="w-full pl-9 pr-4 py-2 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-200 transition-shadow"
             >
               <option value="">{t.allTeams}</option>
               {teams.map((team) => (
@@ -102,7 +102,7 @@ export function ScheduleView({
           {adminToken && phaseTab === "ZWISCHENRUNDE" && (
             <button
               onClick={onOpenSeedingModal}
-              className="flex items-center justify-center gap-2 p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+              className="flex items-center justify-center gap-2 p-2 bg-green-500 hover:bg-blue-500 text-white dark:bg-green-200 dark:hover:bg-blue-200 dark:text-slate-900 rounded-lg transition-colors"
               title={t.editSeeding}
             >
               <Settings2 className="w-5 h-5" />
@@ -111,7 +111,7 @@ export function ScheduleView({
           {adminToken && phaseTab === "FINALRUNDE" && (
             <button
               onClick={onStartFinalRound}
-              className="flex items-center justify-center gap-2 p-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors"
+              className="flex items-center justify-center gap-2 p-2 bg-green-500 hover:bg-blue-500 text-white dark:bg-green-200 dark:hover:bg-blue-200 dark:text-slate-900 rounded-lg transition-colors"
               title={t.startFinalRound}
             >
               <Trophy className="w-5 h-5" />
@@ -120,13 +120,13 @@ export function ScheduleView({
           <div className="flex bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden">
             <button
               onClick={() => setViewMode("table")}
-              className={`p-2 transition-colors ${viewMode === "table" ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300" : "text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700"}`}
+              className={`p-2 transition-colors ${viewMode === "table" ? "bg-blue-500 text-white dark:bg-blue-200 dark:text-slate-900" : "text-slate-500 hover:text-blue-500 dark:hover:text-blue-200 hover:bg-slate-50 dark:hover:bg-slate-700"}`}
             >
               <List className="w-4 h-4" />
             </button>
             <button
               onClick={() => setViewMode("cards")}
-              className={`p-2 transition-colors ${viewMode === "cards" ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300" : "text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700"}`}
+              className={`p-2 transition-colors ${viewMode === "cards" ? "bg-blue-500 text-white dark:bg-blue-200 dark:text-slate-900" : "text-slate-500 hover:text-blue-500 dark:hover:text-blue-200 hover:bg-slate-50 dark:hover:bg-slate-700"}`}
             >
               <LayoutGrid className="w-4 h-4" />
             </button>
@@ -216,7 +216,7 @@ export function ScheduleView({
       ) : (
         <div className="flex flex-col gap-8 w-full">
           {filteredGroupsForSchedule.length === 0 ? (
-            <div className="w-full bg-white dark:bg-slate-800 p-8 rounded-2xl text-center text-gray-500">
+            <div className="w-full bg-white dark:bg-slate-800 p-8 rounded-2xl text-center text-slate-500">
               {t.noMatches}
             </div>
           ) : (
@@ -253,7 +253,7 @@ export function ScheduleView({
                         [group.id]: !p[group.id],
                       }))
                     }
-                    className="w-full flex justify-between items-center px-4 py-3 bg-slate-50 dark:bg-slate-800/80 border-t border-b dark:border-slate-700"
+                    className="w-full flex justify-between items-center px-4 py-3 bg-slate-50 dark:bg-slate-800/80 border-t border-b dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                   >
                     <span className="font-bold text-sm text-slate-600 dark:text-slate-300">
                       {t.matches} {group.name}

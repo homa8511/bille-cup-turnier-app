@@ -11,7 +11,7 @@ import { GroupTable } from "../components/tournament/GroupTable";
 import { MatchCard } from "../components/tournament/MatchCard";
 import { MatchTableRow } from "../components/tournament/MatchTableRow";
 import { TeamLogo } from "../components/ui/TeamLogo";
-import type { Group, Match, Team } from "../types/index";
+import type { Group, Match, Team } from "../types";
 
 interface MyTeamViewProps {
   teams: Team[];
@@ -50,7 +50,7 @@ export function MyTeamView({
             placeholder={t.search}
             value={teamSearchFilter}
             onChange={(e) => setTeamSearchFilter(e.target.value)}
-            className="w-full pl-12 pr-4 py-4 rounded-2xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 shadow-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all text-lg"
+            className="w-full pl-12 pr-4 py-4 rounded-2xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 shadow-sm outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-200 transition-all text-lg"
           />
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
@@ -62,10 +62,10 @@ export function MyTeamView({
               <button
                 key={team.id}
                 onClick={() => setSelectedMyTeam(team.id)}
-                className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm hover:shadow-md transition-all border border-gray-100 dark:border-slate-700 flex flex-col items-center gap-4 hover:-translate-y-1"
+                className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm hover:shadow-md transition-all border border-gray-100 dark:border-slate-700 flex flex-col items-center gap-4 hover:-translate-y-1 hover:border-blue-500 dark:hover:border-blue-200 group"
               >
                 <TeamLogo team={team} size="w-16 h-16" />
-                <span className="font-bold text-center text-sm md:text-base text-slate-800 dark:text-slate-200">
+                <span className="font-bold text-center text-sm md:text-base text-slate-800 dark:text-slate-200 group-hover:text-blue-500 dark:group-hover:text-blue-200 transition-colors">
                   {team.name}
                 </span>
               </button>
@@ -102,14 +102,14 @@ export function MyTeamView({
     <div className="space-y-6 w-full">
       <button
         onClick={() => setSelectedMyTeam("")}
-        className="flex items-center gap-2 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 font-medium transition-colors"
+        className="flex items-center gap-2 text-slate-500 hover:text-blue-500 dark:hover:text-blue-200 font-medium transition-colors"
       >
         <ArrowLeft className="w-5 h-5" /> {t.backToTeams}
       </button>
 
       <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-center gap-6 shadow-sm border border-gray-200 dark:border-slate-700">
         <TeamLogo team={selectedTeamObj} size="w-24 h-24 md:w-32 md:h-32" />
-        <h2 className="text-3xl md:text-4xl font-extrabold text-slate-800 dark:text-white text-center md:text-left">
+        <h2 className="text-3xl md:text-4xl font-extrabold text-green-500 dark:text-green-200 text-center md:text-left">
           {selectedTeamObj?.name}
         </h2>
       </div>
@@ -118,13 +118,13 @@ export function MyTeamView({
         <div className="flex bg-slate-200 dark:bg-slate-800 p-1.5 rounded-xl w-full sm:w-max">
           <button
             onClick={() => setMyTeamView("MATCHES")}
-            className={`flex-1 sm:flex-none px-8 py-2.5 rounded-lg font-bold text-sm transition-all ${myTeamView === "MATCHES" ? "bg-white dark:bg-slate-600 text-blue-700 dark:text-blue-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-300 dark:hover:bg-slate-700"}`}
+            className={`flex-1 sm:flex-none px-8 py-2.5 rounded-lg font-bold text-sm transition-all ${myTeamView === "MATCHES" ? "bg-blue-500 text-white shadow-sm dark:bg-blue-200 dark:text-slate-900" : "text-slate-600 dark:text-slate-400 hover:bg-slate-300 dark:hover:bg-slate-700"}`}
           >
             {t.matchesTab}
           </button>
           <button
             onClick={() => setMyTeamView("STANDINGS")}
-            className={`flex-1 sm:flex-none px-8 py-2.5 rounded-lg font-bold text-sm transition-all ${myTeamView === "STANDINGS" ? "bg-white dark:bg-slate-600 text-blue-700 dark:text-blue-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-300 dark:hover:bg-slate-700"}`}
+            className={`flex-1 sm:flex-none px-8 py-2.5 rounded-lg font-bold text-sm transition-all ${myTeamView === "STANDINGS" ? "bg-blue-500 text-white shadow-sm dark:bg-blue-200 dark:text-slate-900" : "text-slate-600 dark:text-slate-400 hover:bg-slate-300 dark:hover:bg-slate-700"}`}
           >
             {t.standingsTab}
           </button>
@@ -132,13 +132,13 @@ export function MyTeamView({
         <div className="flex bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden">
           <button
             onClick={() => setViewMode("table")}
-            className={`p-2 transition-colors ${viewMode === "table" ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300" : "text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700"}`}
+            className={`p-2 transition-colors ${viewMode === "table" ? "bg-blue-500 text-white dark:bg-blue-200 dark:text-slate-900" : "text-slate-500 hover:text-blue-500 dark:hover:text-blue-200 hover:bg-slate-50 dark:hover:bg-slate-700"}`}
           >
             <List className="w-4 h-4" />
           </button>
           <button
             onClick={() => setViewMode("cards")}
-            className={`p-2 transition-colors ${viewMode === "cards" ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300" : "text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700"}`}
+            className={`p-2 transition-colors ${viewMode === "cards" ? "bg-blue-500 text-white dark:bg-blue-200 dark:text-slate-900" : "text-slate-500 hover:text-blue-500 dark:hover:text-blue-200 hover:bg-slate-50 dark:hover:bg-slate-700"}`}
           >
             <LayoutGrid className="w-4 h-4" />
           </button>
@@ -238,7 +238,7 @@ export function MyTeamView({
                       [group.id]: !p[group.id],
                     }))
                   }
-                  className="w-full flex justify-between items-center px-4 py-3 bg-slate-50 dark:bg-slate-800/80 border-t border-b dark:border-slate-700"
+                  className="w-full flex justify-between items-center px-4 py-3 bg-slate-50 dark:bg-slate-800/80 border-t border-b dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                 >
                   <span className="font-bold text-sm text-slate-600 dark:text-slate-300">
                     {t.matches} {group.name}

@@ -1,6 +1,6 @@
-import { Edit, Save, X } from "lucide-react";
+import { Edit2, Save, X } from "lucide-react";
 import { useState } from "react";
-import type { Group, Match, Team } from "../../types/index";
+import type { Group, Match, Team } from "../../types";
 import { TeamLogo } from "../ui/TeamLogo";
 
 interface MatchTableRowProps {
@@ -27,44 +27,31 @@ export function MatchTableRow({
   t,
 }: MatchTableRowProps) {
   const [editMode, setEditMode] = useState(false);
-  const [hScore, setHScore] = useState<number | "">(
-    match.goals_home !== null ? match.goals_home : 0,
-  );
-  const [aScore, setAScore] = useState<number | "">(
-    match.goals_away !== null ? match.goals_away : 0,
-  );
-
-  const startEditing = () => {
-    setHScore(match.goals_home !== null ? match.goals_home : 0);
-    setAScore(match.goals_away !== null ? match.goals_away : 0);
-    setEditMode(true);
-  };
-
-  const handleSave = () => {
-    if (typeof hScore === "number" && typeof aScore === "number") {
-      onUpdateResult(match.id, hScore, aScore);
-      setEditMode(false);
-    }
-  };
+  const [homeGoals, setHomeGoals] = useState(match.goals_home ?? 0);
+  const [awayGoals, setAwayGoals] = useState(match.goals_away ?? 0);
 
   const isLive = match.status === "LIVE";
   const isFinished = match.status === "BEENDET";
 
-  const homeName = homeTeam?.name || match.home_placeholder || t.unknown;
-  const awayName = awayTeam?.name || match.away_placeholder || t.unknown;
-
-  let rowClasses =
-    "transition-colors border-b last:border-0 dark:border-slate-700 ";
-  if (isLive) rowClasses += "bg-green-50/30 dark:bg-green-900/10";
-  else rowClasses += "hover:bg-slate-50 dark:hover:bg-slate-700/50";
-
-  const formatTime = (iso: string) => {
+  const formatTime = (iso: string | null) => {
     if (!iso) return "--:--";
     return new Date(iso).toLocaleTimeString(t.localeCode || "de-DE", {
       hour: "2-digit",
       minute: "2-digit",
     });
   };
+
+  const handleSave = () => {
+    onUpdateResult(match.id, homeGoals, awayGoals);
+    setEditMode(false);
+  };
+
+  const homeName = homeTeam?.name || match.home_placeholder || t.unknown;
+  const awayName = awayTeam?.name || match.away_placeholder || t.unknown;
+
+  let rowClasses =
+    "hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group ";
+  if (isLive) rowClasses += "bg-blue-50/30 dark:bg-blue-900/20";
 
   return (
     <tr className={rowClasses}>
@@ -78,82 +65,82 @@ export function MatchTableRow({
         {formatTime(match.start_time)}
       </td>
       <td className="px-2 py-3 text-center font-bold text-slate-700 dark:text-slate-300">
-        {group?.name?.split(" ").pop()}
+        {group?.name ? group.name.split(" ").pop() : ""}
       </td>
 
       <td className="px-2 py-2 w-10 text-right">
         <div className="flex justify-end">
-          <TeamLogo team={homeTeam} size="w-7 h-7" />
+          <TeamLogo team={homeTeam} size="w-6 h-6" />
         </div>
       </td>
       <td
-        className={`px-2 py-3 text-right font-semibold w-[35%] ${match.home_team_id === selectedTeam ? "text-blue-600 dark:text-blue-400" : "text-slate-700 dark:text-slate-200"}`}
+        className={`px-2 py-3 text-right font-semibold w-[30%] ${match.home_team_id === selectedTeam ? "text-blue-500 dark:text-blue-200" : "text-slate-700 dark:text-slate-200"}`}
       >
         {homeName}
       </td>
+
       <td
-        className={`px-2 py-3 text-left font-semibold w-[35%] ${match.away_team_id === selectedTeam ? "text-blue-600 dark:text-blue-400" : "text-slate-700 dark:text-slate-200"}`}
+        className={`px-2 py-3 text-left font-semibold w-[30%] ${match.away_team_id === selectedTeam ? "text-blue-500 dark:text-blue-200" : "text-slate-700 dark:text-slate-200"}`}
       >
         {awayName}
       </td>
       <td className="px-2 py-2 w-10 text-left">
         <div className="flex justify-start">
-          <TeamLogo team={awayTeam} size="w-7 h-7" />
+          <TeamLogo team={awayTeam} size="w-6 h-6" />
         </div>
       </td>
 
-      <td className="px-4 py-3 text-center font-bold whitespace-nowrap text-slate-800 dark:text-slate-100 min-w-[120px]">
+      <td className="px-4 py-3 text-center whitespace-nowrap">
         {editMode ? (
-          <div className="flex items-center justify-center gap-1">
+          <div className="flex items-center justify-center gap-2">
             <input
               type="number"
               min="0"
-              value={hScore}
-              onChange={(e) =>
-                setHScore(e.target.value === "" ? 0 : Number(e.target.value))
-              }
-              className="w-10 text-center border rounded dark:bg-slate-900 dark:border-slate-600 outline-none focus:ring-1 focus:ring-blue-500"
+              value={homeGoals}
+              onChange={(e) => setHomeGoals(parseInt(e.target.value) || 0)}
+              className="w-10 h-7 text-center border rounded bg-white dark:bg-slate-900 dark:border-slate-600 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-200 outline-none font-bold text-xs"
             />
-            <span>:</span>
+            <span className="font-bold text-slate-400">:</span>
             <input
               type="number"
               min="0"
-              value={aScore}
-              onChange={(e) =>
-                setAScore(e.target.value === "" ? 0 : Number(e.target.value))
-              }
-              className="w-10 text-center border rounded dark:bg-slate-900 dark:border-slate-600 outline-none focus:ring-1 focus:ring-blue-500"
+              value={awayGoals}
+              onChange={(e) => setAwayGoals(parseInt(e.target.value) || 0)}
+              className="w-10 h-7 text-center border rounded bg-white dark:bg-slate-900 dark:border-slate-600 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-200 outline-none font-bold text-xs"
             />
             <button
               onClick={handleSave}
-              className="ml-2 bg-green-600 text-white p-1 rounded hover:bg-green-700"
+              className="p-1 text-green-500 hover:text-blue-500 dark:text-green-200 dark:hover:text-blue-200 rounded transition-colors"
+              title={t.save}
             >
-              <Save className="w-3 h-3" />
+              <Save className="w-4 h-4" />
             </button>
             <button
               onClick={() => setEditMode(false)}
-              className="ml-1 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 p-1 rounded hover:bg-slate-300"
+              className="p-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 rounded transition-colors"
+              title={t.cancel}
             >
-              <X className="w-3 h-3" />
+              <X className="w-4 h-4" />
             </button>
           </div>
         ) : (
-          <div className="flex items-center justify-center gap-2">
-            <span>
-              {isFinished ? (
-                `${match.goals_home} : ${match.goals_away}`
-              ) : isLive ? (
-                <span className="text-green-600 animate-pulse">0 : 0</span>
-              ) : (
-                "- : -"
-              )}
+          <div className="flex items-center justify-center gap-3">
+            <span
+              className={`font-bold w-12 text-center ${isFinished ? "text-slate-800 dark:text-slate-100" : isLive ? "text-blue-500 dark:text-blue-200 animate-pulse" : "text-slate-400"}`}
+            >
+              {isFinished
+                ? `${match.goals_home} : ${match.goals_away}`
+                : isLive
+                  ? "LIVE"
+                  : "- : -"}
             </span>
-            {isAdmin && (isLive || isFinished) && (
+            {isAdmin && (
               <button
-                onClick={startEditing}
-                className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 p-1 rounded transition"
+                onClick={() => setEditMode(true)}
+                className="p-1.5 bg-green-500 hover:bg-blue-500 text-white dark:bg-green-200 dark:text-slate-900 dark:hover:bg-blue-200 rounded opacity-0 group-hover:opacity-100 transition-all shadow-sm"
+                title={t.edit}
               >
-                <Edit className="w-3 h-3" />
+                <Edit2 className="w-3 h-3" />
               </button>
             )}
           </div>

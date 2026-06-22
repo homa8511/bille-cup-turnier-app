@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { TeamLogo } from "../components/ui/TeamLogo";
-import type { Team } from "../types/index";
+import type { Team } from "../types";
 
 interface AdminDashboardProps {
   adminToken: string;
@@ -359,8 +359,8 @@ export function AdminDashboard({
   return (
     <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 p-6 max-w-4xl mx-auto space-y-10">
       <section>
-        <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-          <Settings2 className="w-6 h-6 text-indigo-500" />
+        <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 text-green-500 dark:text-green-200">
+          <Settings2 className="w-6 h-6" />
           {t.settings}
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -372,7 +372,7 @@ export function AdminDashboard({
               type="text"
               value={adminTournamentName}
               onChange={(e) => setAdminTournamentName(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-200"
             />
           </div>
           <div>
@@ -383,7 +383,7 @@ export function AdminDashboard({
               type="file"
               accept="image/*"
               onChange={handleBackgroundUpload}
-              className="w-full px-3 py-1.5 border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-1.5 border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-200"
             />
           </div>
         </div>
@@ -396,7 +396,7 @@ export function AdminDashboard({
               type="number"
               value={adminMatchDuration}
               onChange={(e) => setAdminMatchDuration(parseInt(e.target.value))}
-              className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-200"
             />
           </div>
           <div>
@@ -407,13 +407,13 @@ export function AdminDashboard({
               type="number"
               value={adminPauseDuration}
               onChange={(e) => setAdminPauseDuration(parseInt(e.target.value))}
-              className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-200"
             />
           </div>
         </div>
         <button
           onClick={handleSaveSettings}
-          className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition"
+          className="flex items-center gap-2 bg-green-500 hover:bg-blue-500 text-white dark:bg-green-200 dark:hover:bg-blue-200 dark:text-slate-900 px-4 py-2 rounded-lg transition-colors shadow-sm"
         >
           <Save className="w-4 h-4" /> {t.save}
         </button>
@@ -422,7 +422,7 @@ export function AdminDashboard({
       <hr className="border-gray-200 dark:border-slate-700" />
 
       <section>
-        <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 text-indigo-600">
+        <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 text-green-500 dark:text-green-200">
           <ImageIcon className="w-6 h-6" />
           {t.editTeams}
         </h2>
@@ -440,19 +440,19 @@ export function AdminDashboard({
                       type="text"
                       value={editTeamName}
                       onChange={(e) => setEditTeamName(e.target.value)}
-                      className="w-full px-2 py-1 text-sm border rounded dark:bg-slate-900 dark:border-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="w-full px-2 py-1 text-sm border rounded dark:bg-slate-900 dark:border-slate-600 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-200"
                       autoFocus
                     />
                     <button
                       onClick={() => handleSaveTeamName(team.id)}
-                      className="text-green-600 hover:text-green-700 p-1"
+                      className="text-green-500 hover:text-blue-500 dark:text-green-200 dark:hover:text-blue-200 p-1 transition-colors"
                       title={t.save}
                     >
                       <Save className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => setEditingTeamId(null)}
-                      className="text-slate-400 hover:text-slate-600 p-1"
+                      className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
                       title={t.cancel}
                     >
                       <X className="w-4 h-4" />
@@ -468,14 +468,14 @@ export function AdminDashboard({
                         setEditingTeamId(team.id);
                         setEditTeamName(team.name);
                       }}
-                      className="text-slate-400 hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                      className="text-slate-400 hover:text-blue-500 dark:hover:text-blue-200 opacity-0 group-hover:opacity-100 transition-opacity p-1"
                       title="Namen bearbeiten"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 )}
-                <label className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 cursor-pointer flex items-center gap-1 transition w-max">
+                <label className="text-xs text-green-500 hover:text-blue-500 dark:text-green-200 dark:hover:text-blue-200 cursor-pointer flex items-center gap-1 transition-colors w-max">
                   <Upload className="w-3 h-3" /> {t.uploadTeamLogo}
                   <input
                     type="file"
@@ -504,7 +504,7 @@ export function AdminDashboard({
               {t.bulkTeamsLabel}
             </label>
             <div className="mb-4">
-              <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 transition">
+              <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer bg-white hover:border-blue-500 hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700 transition-all">
                 <FileSpreadsheet className="w-6 h-6 text-gray-500 mb-2" />
                 <span className="text-sm text-gray-500 font-semibold">
                   {t.uploadCsvLabel}
@@ -520,7 +520,7 @@ export function AdminDashboard({
             {csvTeams.length > 0 ? (
               <div className="space-y-2 max-h-60 overflow-y-auto">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-bold text-green-600">
+                  <span className="text-sm font-bold text-green-500 dark:text-green-200">
                     {t.csvSuccess} ({csvTeams.length})
                   </span>
                   <button
@@ -530,16 +530,16 @@ export function AdminDashboard({
                     {t.discardCsv}
                   </button>
                 </div>
-                <table className="w-full text-xs text-left bg-white rounded overflow-hidden">
-                  <thead className="bg-slate-200">
+                <table className="w-full text-xs text-left bg-white dark:bg-slate-800 rounded overflow-hidden">
+                  <thead className="bg-slate-200 dark:bg-slate-700">
                     <tr>
                       <th className="p-2">Team</th>
                       <th className="p-2">Gruppe</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
                     {csvTeams.map((ct, i) => (
-                      <tr key={i} className="border-b">
+                      <tr key={i}>
                         <td className="p-2 font-medium">{ct.name}</td>
                         <td className="p-2">{ct.group}</td>
                       </tr>
@@ -551,7 +551,7 @@ export function AdminDashboard({
               <textarea
                 value={bulkTeamsText}
                 onChange={(e) => setBulkTeamsText(e.target.value)}
-                className="w-full h-48 px-3 py-2 border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 text-sm font-mono whitespace-pre focus:ring-2 focus:ring-blue-500"
+                className="w-full h-48 px-3 py-2 border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 text-sm font-mono whitespace-pre focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-200"
                 placeholder="Team 1&#10;Team 2&#10;..."
               />
             )}
@@ -565,7 +565,7 @@ export function AdminDashboard({
                 type="datetime-local"
                 value={adminVorrundeStart}
                 onChange={(e) => setAdminVorrundeStart(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-200"
               />
             </div>
             <div>
@@ -576,7 +576,7 @@ export function AdminDashboard({
                 type="datetime-local"
                 value={adminZwischenrundeStart}
                 onChange={(e) => setAdminZwischenrundeStart(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-200"
               />
             </div>
             <div>
@@ -587,12 +587,12 @@ export function AdminDashboard({
                 type="datetime-local"
                 value={adminFinalrundeStart}
                 onChange={(e) => setAdminFinalrundeStart(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border rounded-lg bg-white dark:bg-slate-900 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-200"
               />
             </div>
             <button
               onClick={handleInitializeTournament}
-              className="w-full mt-auto flex items-center justify-center gap-2 bg-red-600 text-white px-6 py-3 rounded-xl hover:bg-red-700 font-bold transition"
+              className="w-full mt-auto flex items-center justify-center gap-2 bg-red-600 text-white px-6 py-3 rounded-xl hover:bg-red-700 font-bold transition shadow-sm"
             >
               <Trophy className="w-5 h-5" /> Automatisches Setup starten
             </button>

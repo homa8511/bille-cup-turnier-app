@@ -1,4 +1,4 @@
-import type { Group, Team } from "../../types/index";
+import type { Group, Team } from "../../types";
 import { TeamLogo } from "../ui/TeamLogo";
 
 interface GroupTableProps {
@@ -25,7 +25,7 @@ export function GroupTable({ group, teams, selectedTeam, t }: GroupTableProps) {
               {t.goalsShort}
             </th>
             <th className="px-2 py-3 font-semibold text-center">{t.tdShort}</th>
-            <th className="px-4 py-3 font-semibold text-center bg-blue-600 text-white dark:bg-blue-700">
+            <th className="px-4 py-3 font-semibold text-center bg-green-500 text-white dark:bg-green-200 dark:text-slate-900">
               {t.ptsShort}
             </th>
           </tr>
@@ -39,14 +39,14 @@ export function GroupTable({ group, teams, selectedTeam, t }: GroupTableProps) {
               return (
                 <tr
                   key={row.team_id || index}
-                  className={`border-b last:border-0 dark:border-slate-700 ${isSelected ? "bg-blue-50 dark:bg-blue-900/20" : "hover:bg-slate-50/50 dark:hover:bg-slate-800/50"}`}
+                  className={`border-b last:border-0 dark:border-slate-700 transition-colors ${isSelected ? "bg-blue-50 border-l-4 border-blue-500 dark:bg-blue-900/30 dark:border-blue-200" : "border-l-4 border-transparent hover:bg-slate-50/50 dark:hover:bg-slate-800/50"}`}
                 >
                   <td className="px-4 py-3 font-semibold text-center">
                     {row.rank}
                   </td>
 
                   <td
-                    className={`px-2 py-3 flex items-center gap-2 ${isSelected ? "font-bold text-blue-700 dark:text-blue-400" : "font-medium"}`}
+                    className={`px-2 py-3 flex items-center gap-2 ${isSelected ? "font-bold text-blue-500 dark:text-blue-200" : "font-medium"}`}
                   >
                     <TeamLogo team={team} size="w-6 h-6" />
                     {team?.name || t.unknown}
@@ -64,7 +64,7 @@ export function GroupTable({ group, teams, selectedTeam, t }: GroupTableProps) {
                     {row.goal_diff ?? 0}
                   </td>
 
-                  <td className="px-4 py-3 text-center font-bold text-blue-700 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/10">
+                  <td className="px-4 py-3 text-center font-bold text-green-600 dark:text-green-400 bg-green-50/50 dark:bg-green-900/10">
                     {row.points}
                   </td>
                 </tr>

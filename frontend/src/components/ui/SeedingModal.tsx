@@ -1,7 +1,7 @@
 import { Info, Save, Settings2 } from "lucide-react";
-import type { Team } from "../../types/index"; // Importpfad korrigiert
-import { Modal } from "./Modal"; // Importpfad korrigiert: liegt nun im selben Ordner
-import { TeamLogo } from "./TeamLogo"; // Importpfad korrigiert: liegt nun im selben Ordner
+import type { Team } from "../../types/index";
+import { Modal } from "./Modal";
+import { TeamLogo } from "./TeamLogo";
 
 interface SeedingModalProps {
   isOpen: boolean;
@@ -43,7 +43,7 @@ export function SeedingModal({
       onClose={onClose}
       title={
         <>
-          <Settings2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+          <Settings2 className="w-5 h-5 text-green-500 dark:text-green-200" />
           {t.seedingTitle}
         </>
       }
@@ -58,7 +58,7 @@ export function SeedingModal({
 
           return (
             <div key={pool.index} className="mb-8 last:mb-0">
-              <h4 className="font-bold text-slate-700 dark:text-slate-300 mb-3 px-1">
+              <h4 className="font-bold text-green-500 dark:text-green-200 mb-3 px-1">
                 {pool.name}
               </h4>
               <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm">
@@ -129,7 +129,7 @@ export function SeedingModal({
                                 onChange={(e) =>
                                   onUpdateGroup(item.team_id, e.target.value)
                                 }
-                                className="w-full px-2 py-1.5 bg-slate-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none font-semibold transition-all cursor-pointer"
+                                className="w-full px-2 py-1.5 bg-slate-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-200 outline-none font-semibold transition-all cursor-pointer"
                               >
                                 {intermediateGroups.map((g) => (
                                   <option key={g} value={g}>
@@ -161,13 +161,13 @@ export function SeedingModal({
       <div className="p-4 md:p-6 border-t border-gray-200 dark:border-slate-700 flex justify-end gap-3 bg-white dark:bg-slate-800 z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
         <button
           onClick={onClose}
-          className="px-5 py-2.5 rounded-lg text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+          className="px-5 py-2.5 rounded-lg text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-blue-500 dark:hover:text-blue-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
         >
           {t.cancel}
         </button>
         <button
           onClick={onSave}
-          className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold shadow-sm transition-colors flex items-center gap-2"
+          className="px-5 py-2.5 bg-green-500 hover:bg-blue-500 text-white dark:bg-green-200 dark:hover:bg-blue-200 dark:text-slate-900 rounded-lg text-sm font-semibold shadow-sm transition-colors flex items-center gap-2"
         >
           <Save className="w-4 h-4" />
           {t.releaseAndGenerate}

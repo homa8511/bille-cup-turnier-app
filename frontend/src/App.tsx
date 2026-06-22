@@ -42,15 +42,15 @@ const renderMarkdown = (text: string | null | undefined) => {
   let html = text
     .replace(
       /^### (.*$)/gim,
-      '<h3 class="text-xl font-bold mt-4 mb-2 dark:text-gray-100">$1</h3>',
+      '<h3 class="text-xl font-bold mt-4 mb-2 text-green-500 dark:text-green-200">$1</h3>',
     )
     .replace(
       /^## (.*$)/gim,
-      '<h2 class="text-2xl font-bold mt-5 mb-2 dark:text-gray-100">$1</h2>',
+      '<h2 class="text-2xl font-bold mt-5 mb-2 text-green-500 dark:text-green-200">$1</h2>',
     )
     .replace(
       /^# (.*$)/gim,
-      '<h1 class="text-3xl font-bold mt-6 mb-4 text-blue-700 dark:text-blue-400">$1</h1>',
+      '<h1 class="text-3xl font-bold mt-6 mb-4 text-green-500 dark:text-green-200">$1</h1>',
     )
     .replace(
       /\*\*(.*)\*\*/gim,
@@ -63,15 +63,15 @@ const renderMarkdown = (text: string | null | undefined) => {
     )
     .replace(
       /\[(.*?)\]\((.*?)\)/gim,
-      "<a href='$2' class='text-blue-500 hover:underline'>$1</a>",
+      "<a href='$2' class='text-green-500 hover:text-blue-500 dark:text-green-200 dark:hover:text-blue-200 underline transition-colors'>$1</a>",
     )
     .replace(
       /^\*\s+(.*$)/gim,
-      '<div class="ml-4 flex gap-2"><span>•</span><span>$1</span></div>',
+      '<div class="ml-4 flex gap-2"><span class="text-green-500 dark:text-green-200">•</span><span>$1</span></div>',
     )
     .replace(
       /^(\d+)\.\s+(.*$)/gim,
-      '<div class="ml-4 flex gap-2"><span class="font-bold">$1.</span><span>$2</span></div>',
+      '<div class="ml-4 flex gap-2"><span class="font-bold text-green-500 dark:text-green-200">$1.</span><span>$2</span></div>',
     )
     .replace(/\n/gim, "<br />");
   return { __html: html };
@@ -282,7 +282,7 @@ export default function App() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
         <div className="text-center animate-pulse">
-          <Trophy className="w-12 h-12 text-blue-600 mx-auto mb-4" />
+          <Trophy className="w-12 h-12 text-green-500 dark:text-green-200 mx-auto mb-4" />
           <p className="font-medium">{t.loadingData}</p>
         </div>
       </div>
@@ -314,7 +314,7 @@ export default function App() {
               )}
               {adminToken && (
                 <label
-                  className="absolute -right-4 -top-4 cursor-pointer p-2 bg-blue-600 rounded-full hover:bg-blue-700 text-white transition shadow-lg"
+                  className="absolute -right-4 -top-4 cursor-pointer p-2 bg-green-500 hover:bg-blue-500 dark:bg-green-200 dark:hover:bg-blue-200 dark:text-slate-900 text-white rounded-full transition-colors shadow-lg"
                   title={t.uploadLogo}
                 >
                   <Upload className="w-4 h-4" />
@@ -434,7 +434,7 @@ export default function App() {
           <footer className="mt-auto bg-white/95 dark:bg-slate-800/95 backdrop-blur-md shadow-xl rounded-t-3xl border-t border-gray-200 dark:border-slate-700 py-10 z-20 px-6 sm:px-10 mb-8">
             <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10">
               <div>
-                <h3 className="font-bold text-lg mb-4 text-slate-800 dark:text-slate-100">
+                <h3 className="font-bold text-lg mb-4 text-green-500 dark:text-green-200">
                   {t.organizer}
                 </h3>
                 {adminToken && !isEditingOrganizer && (
@@ -442,7 +442,7 @@ export default function App() {
                     onClick={() => {
                       setIsEditingOrganizer(true);
                     }}
-                    className="mb-4 flex items-center gap-2 text-blue-600 text-sm hover:underline"
+                    className="mb-4 flex items-center gap-2 text-green-500 hover:text-blue-500 dark:text-green-200 dark:hover:text-blue-200 transition-colors text-sm hover:underline"
                   >
                     <Edit className="w-4 h-4" /> {t.edit}
                   </button>
@@ -470,11 +470,11 @@ export default function App() {
               </div>
               <div>
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-bold text-lg text-slate-800 dark:text-slate-100">
+                  <h3 className="font-bold text-lg text-green-500 dark:text-green-200">
                     {t.sponsors}
                   </h3>
                   {adminToken && (
-                    <label className="cursor-pointer flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 transition">
+                    <label className="cursor-pointer flex items-center gap-1 text-sm text-green-500 hover:text-blue-500 dark:text-green-200 dark:hover:text-blue-200 transition-colors">
                       <Plus className="w-4 h-4" /> {t.addSponsor}
                       <input
                         type="file"
@@ -531,7 +531,7 @@ export default function App() {
                 onChange={(e) =>
                   setLoginForm({ ...loginForm, username: e.target.value })
                 }
-                className="w-full px-3 py-2 border rounded-lg bg-gray-50 dark:bg-slate-900"
+                className="w-full px-3 py-2 border rounded-lg bg-gray-50 dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-200"
                 required
               />
             </div>
@@ -545,13 +545,13 @@ export default function App() {
                 onChange={(e) =>
                   setLoginForm({ ...loginForm, password: e.target.value })
                 }
-                className="w-full px-3 py-2 border rounded-lg bg-gray-50 dark:bg-slate-900"
+                className="w-full px-3 py-2 border rounded-lg bg-gray-50 dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-200"
                 required
               />
             </div>
             <button
               type="submit"
-              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition mt-2"
+              className="w-full py-2.5 bg-green-500 hover:bg-blue-500 dark:bg-green-200 dark:hover:bg-blue-200 dark:text-slate-900 text-white rounded-lg font-bold transition-colors mt-2"
             >
               {t.login}
             </button>
