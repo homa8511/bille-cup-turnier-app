@@ -53,7 +53,10 @@ export class TournamentController {
 
   public async loginAdmin(req: Request, res: Response): Promise<void> {
     const { username, password } = req.body;
-    if (username === "admin" && password === "bille2026") {
+    const validUsername = process.env.ADMIN_USERNAME || "admin";
+    const validPassword = process.env.ADMIN_PASSWORD || "bille2026";
+
+    if (username === validUsername && password === validPassword) {
       const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: "12h" });
       res.json({ token });
     } else {

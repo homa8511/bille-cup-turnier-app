@@ -1,0 +1,57 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: billecup-db-prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-billecup}
+    volumes:
+      - pgdata_prod:/var/lib/postgresql/data
+    networks:
+      - bc_app_net
+
+  backend:
+    build:
+      context: ./backend
+    container_name: billecup-backend-prod
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - db
+    networks:
+      - bc_app_net
+    volumes:
+      - uploads-data_prod:/usr/src/app/public
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: billecup-frontend-prod
+    restart: unless-stopped
+    depends_on:
+      - backend
+    networks:
+      - proxy
+      - bc_app_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.billecup.entrypoints=websecure"
+      - "traefik.http.routers.billecup.rule=Host(`samstag.billecup2026.de`)"
+      - "traefik.http.routers.billecup.tls=true"
+      - "traefik.http.routers.billecup.tls.certresolver=tls_resolver"
+      - "traefik.http.routers.billecup.service=billecup-svc"
+      - "traefik.http.services.billecup-svc.loadbalancer.server.port=80"
+      - "traefik.docker.network=proxy"
+
+networks:
+  proxy:
+    external: true
+  bc_app_net:
+    driver: bridge
+
+volumes:
+  pgdata_prod:
+  uploads-data_prod:
