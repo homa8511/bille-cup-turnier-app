@@ -1,8 +1,83 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 
+@theme {
+  /* TSG Bergedorf Blau (Primary / Accent) */
+  /* Das helle Blau (#0077ED) dient als Akzent, das dunkle (#001427) als Basis. */
+  --color-blue-50: #e5f1fd;
+  --color-blue-100: #cce4fb;
+  --color-blue-200: #99c9f7;
+  --color-blue-300: #66adf2;
+  --color-blue-400: #3392ee;
+  --color-blue-500: #0077ed; /* Original TSG Highlight-Blau */
+  --color-blue-600: #005fbe; /* Abgedunkelt für WCAG AA Text-Kontrast auf Weiß */
+  --color-blue-700: #004487; /* Original TSG Dunkelblau 1 */
+  --color-blue-800: #002346; /* Original TSG Dunkelblau 2 */
+  --color-blue-900: #001427; /* Original TSG Primary Dark / Text */
+  --color-blue-950: #000a14;
+
+  /* TSG Bergedorf Grün (Secondary / Accent) */
+  /* Das TSG Grün (#4E941E) wird in die Tailwind-Skala integriert. */
+  --color-green-50: #f4fbf1;
+  --color-green-100: #e8f7e2;
+  --color-green-200: #c6eab8;
+  --color-green-300: #a4dc8f;
+  --color-green-400: #81cf65;
+  --color-green-500: #4e941e; /* Original TSG Secondary Grün */
+  --color-green-600: #3e7618; /* Abgedunkelt für WCAG AA Text-Kontrast auf Weiß */
+  --color-green-700: #2e5912;
+  --color-green-800: #1f3b0c;
+  --color-green-900: #0f1e06;
+  --color-green-950: #080f03;
+}
+
 @layer base {
+  /* Dieses Styling wendet die dunkelblaue Textfarbe (#001427) global an. */
   body {
-    @apply bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-200 antialiased transition-colors duration-300;
+    @apply bg-[#FAFAFA] text-[#001427] dark:bg-[#001427] dark:text-[#FAFAFA] antialiased transition-colors duration-300;
   }
+}
+
+@layer utilities {
+  /* Diese Klasse unterdrückt den standardmäßigen Scrollbalken in Firefox und IE. */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Diese Klasse unterdrückt den standardmäßigen Scrollbalken in Chrome und Safari. */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Diese Regeln steuern das Aussehen der in Markdown formatierten Inhalte. */
+.prose {
+  color: inherit;
+  line-height: 1.6;
+}
+
+.prose h1,
+.prose h2,
+.prose h3 {
+  color: inherit;
+  font-weight: 700;
+}
+
+.prose a {
+  @apply text-blue-600 dark:text-blue-400 underline;
+}
+
+.prose ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.prose img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
 }
