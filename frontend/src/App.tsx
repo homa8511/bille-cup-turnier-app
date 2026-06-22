@@ -273,11 +273,6 @@ export default function App() {
     }
   };
 
-  const bgImage =
-    globalSettings?.background_image_path ||
-    "https://images.unsplash.com/photo-1518605368461-1ee7e163396f?auto=format&fit=crop&q=80&w=1280";
-  const displayTitle = globalSettings?.tournament_name || t.title;
-
   if (isLoading && teams.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
@@ -295,26 +290,27 @@ export default function App() {
         <div className="fixed inset-0 -z-20 bg-slate-200 dark:bg-slate-950" />
 
         <div className="fixed top-0 left-0 w-full -z-10 bg-slate-900">
-          <img
-            src={bgImage}
-            alt="Tournament Background"
-            className="w-full h-[100dvh] lg:h-auto object-cover object-center lg:object-top opacity-60 mix-blend-overlay lg:mix-blend-normal lg:opacity-100"
-          />
+          <picture>
+            <source media="(min-width: 768px)" srcSet="/bg-desktop.webp" />
+            <img
+              src="/bg-mobile.webp"
+              alt="Tournament Background"
+              className="w-full h-[100dvh] lg:h-auto object-cover object-center lg:object-top opacity-60 mix-blend-overlay lg:mix-blend-normal lg:opacity-100"
+            />
+          </picture>
         </div>
 
         <div className="w-[90%] max-w-7xl mx-auto flex flex-col min-h-screen z-10">
-          <div className="pt-12 pb-12 flex flex-col items-center text-center relative z-20 mt-4">
-            <div className="relative mb-6">
-              {globalSettings?.tournament_logo_path && (
-                <img
-                  src={globalSettings.tournament_logo_path}
-                  className="max-w-[200px] md:max-w-[300px] max-h-[200px] object-contain drop-shadow-2xl"
-                  alt="Logo"
-                />
-              )}
+          <div className="pt-12 pb-8 flex flex-col items-center text-center relative z-20 mt-4">
+            <div className="relative mb-4 w-full flex justify-center">
+              <img
+                src="/logo.webp"
+                className="w-[35vw] max-w-[400px] min-w-[200px] object-contain drop-shadow-2xl"
+                alt="Logo"
+              />
               {adminToken && (
                 <label
-                  className="absolute -right-4 -top-4 cursor-pointer p-2 bg-green-500 hover:bg-blue-500 dark:bg-green-200 dark:hover:bg-blue-200 dark:text-slate-900 text-white rounded-full transition-colors shadow-lg"
+                  className="absolute -right-4 -top-4 cursor-pointer p-2 bg-green-500 hover:bg-blue-500 text-white rounded-full transition-colors shadow-lg"
                   title={t.uploadLogo}
                 >
                   <Upload className="w-4 h-4" />
@@ -327,24 +323,22 @@ export default function App() {
                 </label>
               )}
             </div>
-            <h1
-              className="text-4xl md:text-6xl lg:text-7xl font-extrabold text-white drop-shadow-xl mb-4 tracking-tight"
-              style={{ textShadow: "0 2px 10px rgba(0,0,0,0.5)" }}
+
+            <h2
+              className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-white drop-shadow-lg tracking-wide"
+              style={{ textShadow: "0 2px 8px rgba(0,0,0,0.6)" }}
             >
-              {displayTitle}
-            </h1>
+              27.06.2026
+            </h2>
+
             {globalSettings?.phase_start_time && (
-              <p className="text-white text-lg md:text-xl font-bold bg-black/40 px-5 py-1.5 rounded-full backdrop-blur-sm shadow-lg border border-white/20">
+              <p className="text-white text-lg md:text-xl font-bold bg-black/40 px-5 py-1.5 rounded-full backdrop-blur-sm shadow-lg border border-white/20 mt-4">
                 Start:{" "}
-                {new Date(globalSettings.phase_start_time).toLocaleDateString(
+                {new Date(globalSettings.phase_start_time).toLocaleTimeString(
                   t.localeCode,
-                  {
-                    weekday: "long",
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  },
-                )}
+                  { hour: "2-digit", minute: "2-digit" },
+                )}{" "}
+                Uhr
               </p>
             )}
           </div>
@@ -417,7 +411,7 @@ export default function App() {
               onClose={() => setIsSeedingModalOpen(false)}
               seedingData={seedingData}
               teams={teams}
-              onUpdateGroup={(teamId, newGroup) => {
+              onUpdateGroup={(teamId: string, newGroup: string) => {
                 setSeedingData((prev) =>
                   prev.map((i) =>
                     i.team_id === teamId
@@ -434,7 +428,7 @@ export default function App() {
           <footer className="mt-auto bg-white/95 dark:bg-slate-800/95 backdrop-blur-md shadow-xl rounded-t-3xl border-t border-gray-200 dark:border-slate-700 py-10 z-20 px-6 sm:px-10 mb-8">
             <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10">
               <div>
-                <h3 className="font-bold text-lg mb-4 text-green-500 dark:text-green-200">
+                <h3 className="font-bold text-lg mb-4 text-green-500 dark:text-green-400">
                   {t.organizer}
                 </h3>
                 {adminToken && !isEditingOrganizer && (
@@ -442,7 +436,7 @@ export default function App() {
                     onClick={() => {
                       setIsEditingOrganizer(true);
                     }}
-                    className="mb-4 flex items-center gap-2 text-green-500 hover:text-blue-500 dark:text-green-200 dark:hover:text-blue-200 transition-colors text-sm hover:underline"
+                    className="mb-4 flex items-center gap-2 text-green-500 hover:text-blue-500 transition-colors text-sm hover:underline"
                   >
                     <Edit className="w-4 h-4" /> {t.edit}
                   </button>
@@ -470,11 +464,11 @@ export default function App() {
               </div>
               <div>
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-bold text-lg text-green-500 dark:text-green-200">
+                  <h3 className="font-bold text-lg text-green-500 dark:text-green-400">
                     {t.sponsors}
                   </h3>
                   {adminToken && (
-                    <label className="cursor-pointer flex items-center gap-1 text-sm text-green-500 hover:text-blue-500 dark:text-green-200 dark:hover:text-blue-200 transition-colors">
+                    <label className="cursor-pointer flex items-center gap-1 text-sm text-green-500 hover:text-blue-500 transition-colors">
                       <Plus className="w-4 h-4" /> {t.addSponsor}
                       <input
                         type="file"
@@ -531,7 +525,7 @@ export default function App() {
                 onChange={(e) =>
                   setLoginForm({ ...loginForm, username: e.target.value })
                 }
-                className="w-full px-3 py-2 border rounded-lg bg-gray-50 dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-200"
+                className="w-full px-3 py-2 border rounded-lg bg-gray-50 dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               />
             </div>
@@ -545,13 +539,13 @@ export default function App() {
                 onChange={(e) =>
                   setLoginForm({ ...loginForm, password: e.target.value })
                 }
-                className="w-full px-3 py-2 border rounded-lg bg-gray-50 dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-200"
+                className="w-full px-3 py-2 border rounded-lg bg-gray-50 dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               />
             </div>
             <button
               type="submit"
-              className="w-full py-2.5 bg-green-500 hover:bg-blue-500 dark:bg-green-200 dark:hover:bg-blue-200 dark:text-slate-900 text-white rounded-lg font-bold transition-colors mt-2"
+              className="w-full py-2.5 bg-green-500 hover:bg-blue-500 text-white rounded-lg font-bold transition-colors mt-2"
             >
               {t.login}
             </button>
