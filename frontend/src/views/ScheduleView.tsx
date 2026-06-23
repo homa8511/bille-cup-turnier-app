@@ -70,66 +70,90 @@ export function ScheduleView({
 
   return (
     <div className="space-y-6 w-full">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <nav className="flex bg-white dark:bg-slate-800 rounded-xl shadow-sm p-1 min-w-max border border-gray-100 dark:border-slate-700">
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 w-full">
+        <div className="w-full xl:hidden relative z-10">
+          <select
+            value={phaseTab}
+            onChange={(e) => setPhaseTab(e.target.value)}
+            className="w-full appearance-none px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-bold text-slate-800 dark:text-slate-200 shadow-sm outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="ALL">{t.allMatches || "Alle Spiele"}</option>
+            <option value="VORRUNDE">{t.vorrunde || "Vorrunde"}</option>
+            <option value="ZWISCHENRUNDE">
+              {t.zwischenrunde || "Zwischenrunde"}
+            </option>
+            <option value="FINALRUNDE">{t.finalrunde || "Finalrunde"}</option>
+          </select>
+          <ChevronDown className="absolute right-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+        </div>
+
+        <nav className="hidden xl:flex bg-white dark:bg-slate-800 rounded-xl shadow-sm p-1 min-w-max border border-gray-100 dark:border-slate-700">
           {["ALL", "VORRUNDE", "ZWISCHENRUNDE", "FINALRUNDE"].map((tab) => (
             <button
               key={tab}
               onClick={() => setPhaseTab(tab)}
               className={`px-4 py-2.5 text-sm font-bold rounded-lg transition-all ${phaseTab === tab ? "bg-blue-500 text-white dark:bg-blue-200 dark:text-slate-900 shadow-sm" : "text-slate-500 hover:text-blue-500 dark:hover:text-blue-200 hover:bg-slate-50 dark:hover:bg-slate-700"}`}
             >
-              {tab === "ALL" ? t.allMatches : t[tab.toLowerCase()]}
+              {tab === "ALL"
+                ? t.allMatches || "Alle Spiele"
+                : t[tab.toLowerCase()] || tab}
             </button>
           ))}
         </nav>
 
-        <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full xl:w-auto">
           <div className="relative flex-1 sm:w-64">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <select
               value={teamSearchFilter}
               onChange={(e) => setTeamSearchFilter(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-200 transition-shadow"
+              className="w-full appearance-none pl-9 pr-8 py-3 sm:py-2 rounded-xl sm:rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-medium text-slate-800 dark:text-slate-200 shadow-sm outline-none focus:ring-2 focus:ring-blue-500 transition-shadow"
             >
-              <option value="">{t.allTeams}</option>
+              <option value="">{t.allTeams || "Alle Teams anzeigen"}</option>
               {teams.map((team) => (
                 <option key={team.id} value={team.id}>
                   {team.name}
                 </option>
               ))}
             </select>
+            <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
           </div>
-          {adminToken && phaseTab === "ZWISCHENRUNDE" && (
-            <button
-              onClick={onOpenSeedingModal}
-              className="flex items-center justify-center gap-2 p-2 bg-green-500 hover:bg-blue-500 text-white dark:bg-green-200 dark:hover:bg-blue-200 dark:text-slate-900 rounded-lg transition-colors"
-              title={t.editSeeding}
-            >
-              <Settings2 className="w-5 h-5" />
-            </button>
-          )}
-          {adminToken && phaseTab === "FINALRUNDE" && (
-            <button
-              onClick={onStartFinalRound}
-              className="flex items-center justify-center gap-2 p-2 bg-green-500 hover:bg-blue-500 text-white dark:bg-green-200 dark:hover:bg-blue-200 dark:text-slate-900 rounded-lg transition-colors"
-              title={t.startFinalRound}
-            >
-              <Trophy className="w-5 h-5" />
-            </button>
-          )}
-          <div className="flex bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden">
-            <button
-              onClick={() => setViewMode("table")}
-              className={`p-2 transition-colors ${viewMode === "table" ? "bg-blue-500 text-white dark:bg-blue-200 dark:text-slate-900" : "text-slate-500 hover:text-blue-500 dark:hover:text-blue-200 hover:bg-slate-50 dark:hover:bg-slate-700"}`}
-            >
-              <List className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setViewMode("cards")}
-              className={`p-2 transition-colors ${viewMode === "cards" ? "bg-blue-500 text-white dark:bg-blue-200 dark:text-slate-900" : "text-slate-500 hover:text-blue-500 dark:hover:text-blue-200 hover:bg-slate-50 dark:hover:bg-slate-700"}`}
-            >
-              <LayoutGrid className="w-4 h-4" />
-            </button>
+
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+            <div className="flex gap-2">
+              {adminToken && phaseTab === "ZWISCHENRUNDE" && (
+                <button
+                  onClick={onOpenSeedingModal}
+                  className="flex items-center justify-center gap-2 p-2.5 sm:p-2 bg-green-500 hover:bg-blue-500 text-white dark:bg-green-200 dark:hover:bg-blue-200 dark:text-slate-900 rounded-lg transition-colors shadow-sm"
+                  title={t.editSeeding}
+                >
+                  <Settings2 className="w-5 h-5" />
+                </button>
+              )}
+              {adminToken && phaseTab === "FINALRUNDE" && (
+                <button
+                  onClick={onStartFinalRound}
+                  className="flex items-center justify-center gap-2 p-2.5 sm:p-2 bg-green-500 hover:bg-blue-500 text-white dark:bg-green-200 dark:hover:bg-blue-200 dark:text-slate-900 rounded-lg transition-colors shadow-sm"
+                  title={t.startFinalRound}
+                >
+                  <Trophy className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+            <div className="flex bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden shrink-0">
+              <button
+                onClick={() => setViewMode("table")}
+                className={`p-2.5 sm:p-2 transition-colors ${viewMode === "table" ? "bg-blue-500 text-white dark:bg-blue-200 dark:text-slate-900" : "text-slate-500 hover:text-blue-500 dark:hover:text-blue-200 hover:bg-slate-50 dark:hover:bg-slate-700"}`}
+              >
+                <List className="w-5 h-5 sm:w-4 sm:h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode("cards")}
+                className={`p-2.5 sm:p-2 transition-colors ${viewMode === "cards" ? "bg-blue-500 text-white dark:bg-blue-200 dark:text-slate-900" : "text-slate-500 hover:text-blue-500 dark:hover:text-blue-200 hover:bg-slate-50 dark:hover:bg-slate-700"}`}
+              >
+                <LayoutGrid className="w-5 h-5 sm:w-4 sm:h-4" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
