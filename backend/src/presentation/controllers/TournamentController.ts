@@ -200,6 +200,7 @@ export class TournamentController {
       phase_start_time,
       footer_text_de,
       footer_text_en,
+      sponsors,
     } = req.body;
     try {
       await this.settingsRepo.updateConfig({
@@ -208,6 +209,7 @@ export class TournamentController {
         phase_start_time,
         footer_text_de,
         footer_text_en,
+        sponsors,
       });
       this.broadcastUpdate({ type: "SETTINGS_UPDATED" });
       res.json({ message: "Einstellungen erfolgreich aktualisiert" });
@@ -254,7 +256,6 @@ export class TournamentController {
     }
   }
 
-  // --- NEU: Controller-Methode für den Team-Namen ---
   public async updateTeamName(req: Request, res: Response): Promise<void> {
     const teamId = req.params.id;
     const { name } = req.body;
@@ -398,17 +399,14 @@ export class TournamentController {
       const publicUrl = `/public/documents/uploads/${filename}`;
       res.json({ message: "Dokument erfolgreich hochgeladen", url: publicUrl });
     } catch (error: any) {
-      res
-        .status(500)
-        .json({
-          error: `Fehler beim Speichern des Dokuments: ${error.message}`,
-        });
+      res.status(500).json({
+        error: `Fehler beim Speichern des Dokuments: ${error.message}`,
+      });
     }
   }
 
   public async getPageContent(req: Request, res: Response): Promise<void> {
     const slug = req.params.slug as string;
-    const lang = (req.query.lang as string) || "de";
 
     try {
       const page = await this.contentRepo.fetchPageBySlug(slug);
@@ -416,10 +414,12 @@ export class TournamentController {
         res.json({
           id: page.id,
           slug: page.slug,
-          title: lang === "en" ? page.title_en : page.title_de,
-          content:
-            lang === "en" ? page.markdown_content_en : page.markdown_content_de,
-          boxes: lang === "en" ? page.sidebar_boxes_en : page.sidebar_boxes_de,
+          title_de: page.title_de,
+          title_en: page.title_en,
+          content_de: page.markdown_content_de,
+          content_en: page.markdown_content_en,
+          sidebar_boxes_de: page.sidebar_boxes_de,
+          sidebar_boxes_en: page.sidebar_boxes_en,
           updated_at: page.updated_at,
         });
       } else {

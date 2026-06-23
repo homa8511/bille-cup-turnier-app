@@ -63,7 +63,7 @@ const renderMarkdown = (text: string | null | undefined) => {
     )
     .replace(
       /\[(.*?)\]\((.*?)\)/gim,
-      "<a href='$2' class='text-green-500 hover:text-blue-500 dark:text-green-200 dark:hover:text-blue-200 underline transition-colors'>$1</a>",
+      "<a href='$2' target='_blank' rel='noopener noreferrer' class='text-green-500 hover:text-blue-500 dark:text-green-200 dark:hover:text-blue-200 underline transition-colors'>$1</a>",
     )
     .replace(
       /^\*\s+(.*$)/gim,
@@ -91,15 +91,21 @@ export default function App() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
 
-  const [tournamentInfo, setTournamentInfo] = useState(initialMarkdown);
-  const [infoBoxes, setInfoBoxes] = useState<InfoBox[]>(initialBoxes);
+  const [pageData, setPageData] = useState({
+    content_de: initialMarkdown,
+    content_en: initialMarkdown,
+    sidebar_boxes_de: initialBoxes,
+    sidebar_boxes_en: initialBoxes,
+  });
 
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings | null>(
     null,
   );
-  const [organizerInfo, setOrganizerInfo] = useState(
-    "TSG Bergedorf\nBilltalstadion\n21029 Hamburg",
-  );
+
+  const [footerData, setFooterData] = useState({
+    de: "TSG Bergedorf\nBilltalstadion\n21029 Hamburg",
+    en: "TSG Bergedorf\nBilltalstadion\n21029 Hamburg",
+  });
   const [isEditingOrganizer, setIsEditingOrganizer] = useState(false);
   const [sponsors, setSponsors] = useState<string[]>([]);
 
@@ -111,8 +117,44 @@ export default function App() {
   const fetchSettings = () => {
     fetch("/api/settings")
       .then((res) => res.json())
-      .then(setGlobalSettings)
+      .then((data) => {
+        setGlobalSettings(data);
+        setFooterData({
+          de:
+            data.footer_text_de ||
+            "TSG Bergedorf\nBilltalstadion\n21029 Hamburg",
+          en:
+            data.footer_text_en ||
+            "TSG Bergedorf\nBilltalstadion\n21029 Hamburg",
+        });
+        if (data.sponsors && Array.isArray(data.sponsors))
+          setSponsors(data.sponsors);
+      })
       .catch(() => null);
+  };
+
+  const fetchPageData = async () => {
+    try {
+      const res = await fetch("/api/pages/info");
+      if (res.ok) {
+        const data = await res.json();
+        if (data) {
+          const parseBoxes = (boxes: any) => {
+            if (typeof boxes === "string") return JSON.parse(boxes);
+            if (Array.isArray(boxes)) return boxes;
+            return initialBoxes;
+          };
+          setPageData({
+            content_de: data.content_de || initialMarkdown,
+            content_en: data.content_en || initialMarkdown,
+            sidebar_boxes_de: parseBoxes(data.sidebar_boxes_de),
+            sidebar_boxes_en: parseBoxes(data.sidebar_boxes_en),
+          });
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   useEffect(() => {
@@ -124,6 +166,7 @@ export default function App() {
       document.documentElement.classList.add("dark");
     }
     fetchSettings();
+    fetchPageData();
   }, []);
 
   const toggleLanguage = () => setLanguage((l) => (l === "de" ? "en" : "de"));
@@ -182,6 +225,91 @@ export default function App() {
     }
   };
 
+  const handleSaveTournamentInfo = async (content: string) => {
+    const key = language === "en" ? "content_en" : "content_de";
+    const updatedData = { ...pageData, [key]: content };
+    setPageData(updatedData);
+
+    if (!adminToken) return;
+    await fetch("/api/admin/pages/info", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${adminToken}`,
+      },
+      body: JSON.stringify({
+        title_de: "Turnierinfos",
+        title_en: "Tournament Info",
+        ...updatedData,
+      }),
+    });
+  };
+
+  const handleSaveInfoBoxes = async (boxes: InfoBox[]) => {
+    const key = language === "en" ? "sidebar_boxes_en" : "sidebar_boxes_de";
+    const updatedData = { ...pageData, [key]: boxes };
+    setPageData(updatedData);
+
+    if (!adminToken) return;
+    await fetch("/api/admin/pages/info", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${adminToken}`,
+      },
+      body: JSON.stringify({
+        title_de: "Turnierinfos",
+        title_en: "Tournament Info",
+        ...updatedData,
+      }),
+    });
+  };
+
+  const handleSaveOrganizer = async (content: string) => {
+    const updatedFooter = { ...footerData, [language]: content };
+    setFooterData(updatedFooter);
+    setIsEditingOrganizer(false);
+
+    if (!adminToken || !globalSettings) return;
+
+    await fetch("/api/admin/settings", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${adminToken}`,
+      },
+      body: JSON.stringify({
+        match_duration_minutes: globalSettings.match_duration_minutes,
+        pause_duration_minutes: globalSettings.pause_duration_minutes,
+        tournament_name: globalSettings.tournament_name,
+        phase_start_time: globalSettings.phase_start_time,
+        footer_text_de: updatedFooter.de,
+        footer_text_en: updatedFooter.en,
+        sponsors: sponsors,
+      }),
+    });
+  };
+
+  const saveSponsorsToBackend = async (newSponsors: string[]) => {
+    if (!adminToken || !globalSettings) return;
+    await fetch("/api/admin/settings", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${adminToken}`,
+      },
+      body: JSON.stringify({
+        match_duration_minutes: globalSettings.match_duration_minutes,
+        pause_duration_minutes: globalSettings.pause_duration_minutes,
+        tournament_name: globalSettings.tournament_name,
+        phase_start_time: globalSettings.phase_start_time,
+        footer_text_de: footerData.de,
+        footer_text_en: footerData.en,
+        sponsors: newSponsors,
+      }),
+    });
+  };
+
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -200,14 +328,41 @@ export default function App() {
     }
   };
 
-  const handleSponsorUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSponsorUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () =>
-        setSponsors((prev) => [...prev, reader.result as string]);
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("sponsor", file);
+
+    try {
+      const res = await fetch("/api/admin/settings/sponsors", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${adminToken}` },
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const newSponsors = [...sponsors, data.url];
+        setSponsors(newSponsors);
+        saveSponsorsToBackend(newSponsors);
+      } else {
+        alert("Fehler beim Upload des Sponsors.");
+      }
+    } catch (err) {
+      console.error(err);
     }
+
+    e.target.value = "";
+  };
+
+  const removeSponsor = (indexToRemove: number) => {
+    const newSponsors = sponsors.filter((_, index) => index !== indexToRemove);
+    setSponsors(newSponsors);
+    saveSponsorsToBackend(newSponsors);
   };
 
   const handleOpenSeedingModal = async () => {
@@ -370,12 +525,18 @@ export default function App() {
 
             {mainMenuTab === "INFO" && (
               <TournamentInfoView
-                content={tournamentInfo}
-                boxes={infoBoxes}
+                content={
+                  language === "en" ? pageData.content_en : pageData.content_de
+                }
+                boxes={
+                  language === "en"
+                    ? pageData.sidebar_boxes_en
+                    : pageData.sidebar_boxes_de
+                }
                 isAdmin={!!adminToken}
                 adminToken={adminToken || ""}
-                onSaveContent={setTournamentInfo}
-                onSaveBoxes={setInfoBoxes}
+                onSaveContent={handleSaveTournamentInfo}
+                onSaveBoxes={handleSaveInfoBoxes}
                 t={t}
               />
             )}
@@ -433,9 +594,7 @@ export default function App() {
                 </h3>
                 {adminToken && !isEditingOrganizer && (
                   <button
-                    onClick={() => {
-                      setIsEditingOrganizer(true);
-                    }}
+                    onClick={() => setIsEditingOrganizer(true)}
                     className="mb-4 flex items-center gap-2 text-green-500 hover:text-blue-500 transition-colors text-sm hover:underline"
                   >
                     <Edit className="w-4 h-4" /> {t.edit}
@@ -445,11 +604,10 @@ export default function App() {
                 {isEditingOrganizer ? (
                   <div className="mt-2">
                     <MarkdownEditor
-                      initialValue={organizerInfo}
-                      onSave={(val) => {
-                        setOrganizerInfo(val);
-                        setIsEditingOrganizer(false);
-                      }}
+                      initialValue={
+                        language === "en" ? footerData.en : footerData.de
+                      }
+                      onSave={handleSaveOrganizer}
                       onCancel={() => setIsEditingOrganizer(false)}
                       t={t}
                       adminToken={adminToken || ""}
@@ -458,7 +616,9 @@ export default function App() {
                 ) : (
                   <div
                     className="prose prose-sm dark:prose-invert max-w-none text-slate-600 dark:text-slate-400 leading-relaxed"
-                    dangerouslySetInnerHTML={renderMarkdown(organizerInfo)}
+                    dangerouslySetInnerHTML={renderMarkdown(
+                      language === "en" ? footerData.en : footerData.de,
+                    )}
                   />
                 )}
               </div>
@@ -492,9 +652,7 @@ export default function App() {
                       />
                       {adminToken && (
                         <button
-                          onClick={() =>
-                            setSponsors((p) => p.filter((_, i) => i !== idx))
-                          }
+                          onClick={() => removeSponsor(idx)}
                           className="absolute -top-2 -right-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
                         >
                           <Trash2 className="w-3.5 h-3.5" />

@@ -14,18 +14,25 @@ app.use(express.json());
 
 // Diese erweiterte Middleware protokolliert Anfragen und fängt Fehler-Payloads für das Docker-Log ab.
 app.use((req, res, next) => {
-  console.log(`[API-Proxy] Eingehende Anfrage: ${req.method} ${req.originalUrl}`);
+  console.log(
+    `[API-Proxy] Eingehende Anfrage: ${req.method} ${req.originalUrl}`,
+  );
 
   const originalJson = res.json;
   res.json = function (body) {
     if (res.statusCode >= 400) {
-      console.error(`[API-Fehler] ${req.method} ${req.originalUrl} - HTTP ${res.statusCode}`, JSON.stringify(body, null, 2));
+      console.error(
+        `[API-Fehler] ${req.method} ${req.originalUrl} - HTTP ${res.statusCode}`,
+        JSON.stringify(body, null, 2),
+      );
     }
     return originalJson.call(this, body);
   };
-  
+
   next();
 });
+
+app.use("/public", express.static(path.join(__dirname, "../public")));
 
 app.use(
   "/public/images",
